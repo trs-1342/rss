@@ -1,20 +1,133 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import React from "react";
+import { StatusBar } from "react-native";
+import { NavigationContainer } from "@react-navigation/native";
+import {
+  createNativeStackNavigator,
+} from "@react-navigation/native-stack";
+import {
+  createBottomTabNavigator,
+} from "@react-navigation/bottom-tabs";
+import { Ionicons } from "@expo/vector-icons";
 
-export default function App() {
+import HomeScreen from "./screens/HomeScreen";
+import AddFeedScreen from "./screens/AddFeedScreen";
+import SettingsScreen from "./screens/SettingsScreen";
+import ArchivedScreen from "./screens/ArchivedScreen";
+import PostDetailScreen from "./screens/PostDetailScreen";
+import { FeedProvider, FeedItem } from "./context/FeedContext";
+import {
+  AppThemeProvider,
+  useAppTheme,
+} from "./context/ThemeContext";
+
+export type HomeStackParamList = {
+  HomeMain: undefined;
+  AddFeed: undefined;
+  PostDetail: { item: FeedItem };
+};
+
+export type RootTabParamList = {
+  HomeTab: undefined;
+  ArchivedTab: undefined;
+  SettingsTab: undefined;
+};
+
+const HomeStack =
+  createNativeStackNavigator<HomeStackParamList>();
+const Tab =
+  createBottomTabNavigator<RootTabParamList>();
+
+function HomeStackNavigator() {
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <HomeStack.Navigator>
+      <HomeStack.Screen
+        name="HomeMain"
+        component={HomeScreen}
+        options={{ title: "RSS Reader" }}
+      />
+      <HomeStack.Screen
+        name="AddFeed"
+        component={AddFeedScreen}
+        options={{ title: "Yeni Feed Ekle" }}
+      />
+      <HomeStack.Screen
+        name="PostDetail"
+        component={PostDetailScreen}
+        options={{ title: "Detay" }}
+      />
+    </HomeStack.Navigator>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+function AppNavigation() {
+  const { navTheme, statusBarStyle } = useAppTheme();
+
+  return (
+    <>
+      <StatusBar barStyle={statusBarStyle} />
+      <NavigationContainer theme={navTheme}>
+        <Tab.Navigator
+          screenOptions={({ route }) => ({
+            headerShown: false,
+            tabBarIcon: ({ color, size }) => {
+              if (route.name === "HomeTab") {
+                return (
+                  <Ionicons
+                    name="home-outline"
+                    size={size}
+                    color={color}
+                  />
+                );
+              } else if (route.name === "ArchivedTab") {
+                return (
+                  <Ionicons
+                    name="archive-outline"
+                    size={size}
+                    color={color}
+                  />
+                );
+              } else {
+                return (
+                  <Ionicons
+                    name="settings-outline"
+                    size={size}
+                    color={color}
+                  />
+                );
+              }
+            },
+            tabBarLabel:
+              route.name === "HomeTab"
+                ? "Anasayfa"
+                : route.name === "ArchivedTab"
+                  ? "Arşivler"
+                  : "Ayarlar",
+          })}
+        >
+          <Tab.Screen
+            name="HomeTab"
+            component={HomeStackNavigator}
+          />
+          <Tab.Screen
+            name="ArchivedTab"
+            component={ArchivedScreen}
+          />
+          <Tab.Screen
+            name="SettingsTab"
+            component={SettingsScreen}
+          />
+        </Tab.Navigator>
+      </NavigationContainer>
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <AppThemeProvider>
+      <FeedProvider>
+        <AppNavigation />
+      </FeedProvider>
+    </AppThemeProvider>
+  );
+}
