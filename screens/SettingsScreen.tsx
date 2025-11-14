@@ -6,46 +6,25 @@ import {
     TouchableOpacity,
     TextInput,
 } from "react-native";
-import { useTheme } from "@react-navigation/native";
+import {
+    useTheme,
+} from "@react-navigation/native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme, ThemeMode } from "../context/ThemeContext";
 import { useFeed } from "../context/FeedContext";
-
-const ModeButton = ({
-    label,
-    modeValue,
-    current,
-    onPress,
-}: {
-    label: string;
-    modeValue: ThemeMode;
-    current: ThemeMode;
-    onPress: () => void;
-}) => {
-    const active = current === modeValue;
-    return (
-        <TouchableOpacity
-            style={[
-                styles.modeButton,
-                active && styles.modeButtonActive,
-            ]}
-            onPress={onPress}
-        >
-            <Text
-                style={[
-                    styles.modeButtonText,
-                    active && styles.modeButtonTextActive,
-                ]}
-            >
-                {label}
-            </Text>
-        </TouchableOpacity>
-    );
-};
 
 export default function SettingsScreen() {
     const { colors } = useTheme();
     const { mode, setMode } = useAppTheme();
-    const { refreshMinutes, setRefreshMinutes } = useFeed();
+    const {
+        refreshMinutes,
+        setRefreshMinutes,
+        sources,
+        selectedSource,
+        selectSource,
+        removeFeedSource,
+    } = useFeed();
 
     const [refreshInput, setRefreshInput] = useState<string>(
         String(refreshMinutes)
@@ -69,12 +48,50 @@ export default function SettingsScreen() {
         setRefreshInput(String(next));
     };
 
+    const ModeButton = ({
+        label,
+        modeValue,
+    }: {
+        label: string;
+        modeValue: ThemeMode;
+    }) => {
+        const active = mode === modeValue;
+        return (
+            <TouchableOpacity
+                style={[
+                    styles.modeButton,
+                    {
+                        borderColor: colors.border,
+                        backgroundColor: active
+                            ? colors.primary ?? "#333"
+                            : "transparent",
+                    },
+                ]}
+                onPress={() => setMode(modeValue)}
+            >
+                <Text
+                    style={[
+                        styles.modeButtonText,
+                        {
+                            color: active
+                                ? colors.card
+                                : colors.text,
+                        },
+                    ]}
+                >
+                    {label}
+                </Text>
+            </TouchableOpacity>
+        );
+    };
+
     return (
-        <View
+        <SafeAreaView
             style={[
                 styles.container,
                 { backgroundColor: colors.background },
             ]}
+            edges={["top", "left", "right"]}
         >
             <Text
                 style={[styles.title, { color: colors.text }]}
@@ -82,6 +99,7 @@ export default function SettingsScreen() {
                 Ayarlar
             </Text>
 
+            {/* Tema */}
             <Text
                 style={[styles.subtitle, { color: colors.text }]}
             >
@@ -89,26 +107,12 @@ export default function SettingsScreen() {
             </Text>
 
             <View style={styles.row}>
-                <ModeButton
-                    label="Varsayılan"
-                    modeValue="system"
-                    current={mode}
-                    onPress={() => setMode("system")}
-                />
-                <ModeButton
-                    label="Beyaz"
-                    modeValue="light"
-                    current={mode}
-                    onPress={() => setMode("light")}
-                />
-                <ModeButton
-                    label="Siyah"
-                    modeValue="dark"
-                    current={mode}
-                    onPress={() => setMode("dark")}
-                />
+                <ModeButton label="Varsayılan" modeValue="system" />
+                <ModeButton label="Beyaz" modeValue="light" />
+                <ModeButton label="Siyah" modeValue="dark" />
             </View>
 
+            {/* Yenileme süresi */}
             <View style={styles.sectionSpacer} />
 
             <Text
@@ -119,10 +123,24 @@ export default function SettingsScreen() {
 
             <View style={styles.refreshRow}>
                 <TouchableOpacity
-                    style={styles.refreshButton}
+                    style={[
+                        styles.refreshButton,
+                        {
+                            borderColor: colors.border,
+                            backgroundColor:
+                                colors.card,
+                        },
+                    ]}
                     onPress={() => changeBy(-1)}
                 >
-                    <Text style={styles.refreshButtonText}>-</Text>
+                    <Text
+                        style={[
+                            styles.refreshButtonText,
+                            { color: colors.text },
+                        ]}
+                    >
+                        -
+                    </Text>
                 </TouchableOpacity>
 
                 <TextInput
@@ -140,10 +158,24 @@ export default function SettingsScreen() {
                 />
 
                 <TouchableOpacity
-                    style={styles.refreshButton}
+                    style={[
+                        styles.refreshButton,
+                        {
+                            borderColor: colors.border,
+                            backgroundColor:
+                                colors.card,
+                        },
+                    ]}
                     onPress={() => changeBy(1)}
                 >
-                    <Text style={styles.refreshButtonText}>+</Text>
+                    <Text
+                        style={[
+                            styles.refreshButtonText,
+                            { color: colors.text },
+                        ]}
+                    >
+                        +
+                    </Text>
                 </TouchableOpacity>
             </View>
 
@@ -153,14 +185,105 @@ export default function SettingsScreen() {
                 Minimum 1, maksimum 120 dakika. Şu an:{" "}
                 {refreshMinutes} dk.
             </Text>
-        </View>
+
+            {/* RSS Kaynakları */}
+            <View style={styles.sectionSpacer} />
+
+            <Text
+                style={[styles.subtitle, { color: colors.text }]}
+            >
+                RSS Kaynakları
+            </Text>
+
+            {sources.length === 0 ? (
+                <Text
+                    style={[styles.hint, { color: colors.text }]}
+                >
+                    Henüz eklenmiş bir RSS kaynağı yok.
+                </Text>
+            ) : (
+                <View style={styles.feedList}>
+                    {sources.map((src) => {
+                        const active =
+                            selectedSource?.id === src.id;
+                        return (
+                            <View
+                                key={src.id}
+                                style={[
+                                    styles.feedRow,
+                                    {
+                                        backgroundColor: active
+                                            ? colors.card
+                                            : "transparent",
+                                        borderColor: colors.border,
+                                    },
+                                ]}
+                            >
+                                <TouchableOpacity
+                                    style={styles.feedInfo}
+                                    onPress={() => selectSource(src.id)}
+                                >
+                                    <View
+                                        style={styles.feedLeftIndicator}
+                                    >
+                                        <Ionicons
+                                            name={
+                                                active
+                                                    ? "radio-button-on-outline"
+                                                    : "radio-button-off-outline"
+                                            }
+                                            size={18}
+                                            color={colors.text}
+                                        />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text
+                                            style={[
+                                                styles.feedName,
+                                                { color: colors.text },
+                                            ]}
+                                            numberOfLines={1}
+                                        >
+                                            {src.name}
+                                        </Text>
+                                        <Text
+                                            style={[
+                                                styles.feedUrl,
+                                                { color: colors.text },
+                                            ]}
+                                            numberOfLines={1}
+                                        >
+                                            {src.url}
+                                        </Text>
+                                    </View>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={styles.feedRemoveButton}
+                                    onPress={() =>
+                                        removeFeedSource(src.id)
+                                    }
+                                >
+                                    <Ionicons
+                                        name="remove-circle-outline"
+                                        size={22}
+                                        color="#ff3b30"
+                                    />
+                                </TouchableOpacity>
+                            </View>
+                        );
+                    })}
+                </View>
+            )}
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 24,
+        paddingHorizontal: 24,
+        paddingBottom: 24,
     },
     title: {
         fontSize: 22,
@@ -179,22 +302,12 @@ const styles = StyleSheet.create({
     modeButton: {
         flex: 1,
         paddingVertical: 10,
-        borderRadius: 8,
+        borderRadius: 999,
         borderWidth: 1,
-        borderColor: "#999",
         alignItems: "center",
-    },
-    modeButtonActive: {
-        backgroundColor: "#333",
-        borderColor: "#333",
     },
     modeButtonText: {
         fontSize: 14,
-        color: "#333",
-    },
-    modeButtonTextActive: {
-        color: "#fff",
-        fontWeight: "600",
     },
     sectionSpacer: {
         height: 24,
@@ -211,7 +324,6 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         borderWidth: 1,
-        borderColor: "#999",
     },
     refreshButtonText: {
         fontSize: 20,
@@ -220,7 +332,7 @@ const styles = StyleSheet.create({
     refreshInput: {
         flex: 1,
         borderWidth: 1,
-        borderRadius: 8,
+        borderRadius: 10,
         paddingVertical: 8,
         paddingHorizontal: 12,
         textAlign: "center",
@@ -229,5 +341,38 @@ const styles = StyleSheet.create({
     hint: {
         marginTop: 8,
         fontSize: 12,
+    },
+    feedList: {
+        marginTop: 8,
+        gap: 8,
+    },
+    feedRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        borderWidth: 1,
+        borderRadius: 10,
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+        gap: 4,
+    },
+    feedInfo: {
+        flexDirection: "row",
+        flex: 1,
+        alignItems: "center",
+        gap: 8,
+    },
+    feedLeftIndicator: {
+        width: 24,
+        alignItems: "center",
+    },
+    feedName: {
+        fontSize: 14,
+        fontWeight: "600",
+    },
+    feedUrl: {
+        fontSize: 12,
+    },
+    feedRemoveButton: {
+        paddingLeft: 4,
     },
 });

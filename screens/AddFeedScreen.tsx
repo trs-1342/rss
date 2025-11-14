@@ -20,19 +20,15 @@ type Props = NativeStackScreenProps<
 
 export default function AddFeedScreen({ navigation }: Props) {
     const { colors } = useTheme();
-    const { addOrLoadFeed, loading } = useFeed();
+    const { addFeedSource, loading } = useFeed();
 
+    const [name, setName] = useState("Blog");
     const [url, setUrl] = useState(
         "https://yusufipek.me/tag/blog/rss"
     );
 
     const handleSave = async () => {
-        const trimmed = url.trim();
-        if (!trimmed) {
-            return;
-        }
-
-        const ok = await addOrLoadFeed(trimmed);
+        const ok = await addFeedSource(name, url);
         if (ok) {
             navigation.goBack();
         }
@@ -48,14 +44,33 @@ export default function AddFeedScreen({ navigation }: Props) {
             <Text
                 style={[styles.title, { color: colors.text }]}
             >
-                Yeni Feed Ekle
+                Yeni RSS Kaynağı
             </Text>
+
+            <Text
+                style={[styles.label, { color: colors.text }]}
+            >
+                Kaynak Adı
+            </Text>
+            <TextInput
+                style={[
+                    styles.input,
+                    {
+                        borderColor: colors.border,
+                        color: colors.text,
+                    },
+                ]}
+                value={name}
+                onChangeText={setName}
+                placeholder="Örn: Kişisel Blog"
+                placeholderTextColor={colors.border}
+            />
+
             <Text
                 style={[styles.label, { color: colors.text }]}
             >
                 RSS URL
             </Text>
-
             <TextInput
                 style={[
                     styles.input,
@@ -77,12 +92,6 @@ export default function AddFeedScreen({ navigation }: Props) {
                 onPress={handleSave}
                 disabled={loading}
             />
-
-            <Text
-                style={[styles.hint, { color: colors.text }]}
-            >
-                Örnek: https://yusufipek.me/tag/blog/rss
-            </Text>
         </View>
     );
 }
@@ -106,9 +115,5 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         paddingHorizontal: 12,
         paddingVertical: 8,
-    },
-    hint: {
-        fontSize: 12,
-        marginTop: 8,
     },
 });

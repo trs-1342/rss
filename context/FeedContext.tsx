@@ -2,11 +2,12 @@ import React, {
     createContext,
     useContext,
     useState,
-    useEffect,
     ReactNode,
+    useEffect,
 } from "react";
 import { Alert } from "react-native";
 import { XMLParser } from "fast-xml-parser";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export type FeedItem = {
     id: string;
@@ -18,19 +19,33 @@ export type FeedItem = {
     read: boolean;
 };
 
-type FeedState = {
-    url?: string;
-    title?: string;
-    items: FeedItem[];
+export type FeedSource = {
+    id: string;
+    name: string;
+    url: string;
+    createdAt: string;
+};
+
+type FeedStore = {
+    sources: FeedSource[];
+    selectedId?: string;
+    refreshMinutes: number;
 };
 
 type FeedContextValue = {
-    feed: FeedState;
+    sources: FeedSource[];
+    selectedSource?: FeedSource;
+    items: FeedItem[];
     loading: boolean;
     error?: string;
     refreshMinutes: number;
+
     setRefreshMinutes: (min: number) => void;
-    addOrLoadFeed: (url: string) => Promise<boolean>;
+
+    addFeedSource: (name: string, url: string) => Promise<boolean>;
+    removeFeedSource: (id: string) => void;
+    selectSource: (id: string) => void;
+
     toggleArchive: (id: string) => void;
     toggleRead: (id: string) => void;
 };
@@ -39,30 +54,76 @@ const FeedContext = createContext<FeedContextValue | undefined>(
     undefined
 );
 
+const STORAGE_KEY = "rssReaderApp:feedStore";
+
 export const FeedProvider = ({ children }: { children: ReactNode }) => {
-    const [feed, setFeed] = useState<FeedState>({ items: [] });
+    const [sources, setSources] = useState<FeedSource[]>([]);
+    const [selectedId, setSelectedId] = useState<string | undefined>(
+        undefined
+    );
+    const [refreshMinutes, _setRefreshMinutes] =
+        useState<number>(15);
+
+    const [items, setItems] = useState<FeedItem[]>([]);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | undefined>(undefined);
+    const [error, setError] = useState<string | undefined>(
+        undefined
+    );
 
-    // Otomatik yenileme süresi (dakika)
-    const [refreshMinutes, _setRefreshMinutes] = useState<number>(15);
+    // ---------- Local "DB": AsyncStorage'tan yükle ----------
+    useEffect(() => {
+        const loadStore = async () => {
+            try {
+                const raw = await AsyncStorage.getItem(STORAGE_KEY);
+                if (!raw) return;
 
-    const setRefreshMinutes = (min: number) => {
-        // 1–120 dk arası clamp
-        const safe = Math.min(120, Math.max(1, Math.round(min || 1)));
-        _setRefreshMinutes(safe);
-    };
+                const parsed: FeedStore = JSON.parse(raw);
+                setSources(parsed.sources ?? []);
+                setSelectedId(parsed.selectedId);
+                _setRefreshMinutes(parsed.refreshMinutes ?? 15);
+            } catch (err) {
+                console.error("Store load error:", err);
+            }
+        };
 
-    // RSS çekme işini ortak fonksiyona aldık
-    const loadFeedFromUrl = async (
-        url: string,
+        loadStore();
+    }, []);
+
+    // ---------- Store'u kaydet ----------
+    useEffect(() => {
+        const saveStore = async () => {
+            try {
+                const store: FeedStore = {
+                    sources,
+                    selectedId,
+                    refreshMinutes,
+                };
+                await AsyncStorage.setItem(
+                    STORAGE_KEY,
+                    JSON.stringify(store)
+                );
+            } catch (err) {
+                console.error("Store save error:", err);
+            }
+        };
+
+        saveStore();
+    }, [sources, selectedId, refreshMinutes]);
+
+    const selectedSource = sources.find(
+        (s) => s.id === selectedId
+    );
+
+    // ---------- RSS çekme ----------
+    const loadFeedForSource = async (
+        source: FeedSource,
         opts?: { silent?: boolean }
     ): Promise<boolean> => {
         const silent = opts?.silent ?? false;
 
-        // Basit URL validasyonu
+        // URL validasyonu
         try {
-            new URL(url);
+            new URL(source.url);
         } catch {
             const msg = "Geçerli bir URL gir.";
             setError(msg);
@@ -76,7 +137,7 @@ export const FeedProvider = ({ children }: { children: ReactNode }) => {
         }
 
         try {
-            const res = await fetch(url);
+            const res = await fetch(source.url);
             if (!res.ok) {
                 throw new Error(`HTTP hata kodu: ${res.status}`);
             }
@@ -98,51 +159,53 @@ export const FeedProvider = ({ children }: { children: ReactNode }) => {
             const rawItems = channel.item ?? channel.entry ?? [];
             const arr = Array.isArray(rawItems) ? rawItems : [rawItems];
 
-            // Önceki item'ları mapleyelim ki arşiv/okundu bilgisi kaybolmasın
+            // Okundu/arşiv durumu korunması için önceki item'lar
             const prevMap = new Map<string, FeedItem>();
-            for (const it of feed.items) {
+            for (const it of items) {
                 prevMap.set(it.id, it);
             }
 
-            const items: FeedItem[] = arr.map((item: any, index: number) => {
-                const id =
-                    item.guid?.["#text"] ??
-                    item.guid ??
-                    item.id ??
-                    `${index}`;
-                const prev = prevMap.get(id);
+            const nextItems: FeedItem[] = arr.map(
+                (item: any, index: number) => {
+                    const id =
+                        item.guid?.["#text"] ??
+                        item.guid ??
+                        item.id ??
+                        `${index}`;
+                    const prev = prevMap.get(id);
 
-                return {
-                    id,
-                    title:
-                        item.title?.["#text"] ??
-                        item.title ??
-                        "Başlıksız",
-                    link:
-                        item.link?.href ??
-                        (typeof item.link === "string" ? item.link : "") ??
-                        "",
-                    pubDate: item.pubDate ?? item.updated ?? item.published,
-                    description:
-                        item.description?.["#text"] ??
-                        item.description ??
-                        item.summary ??
-                        "",
-                    archived: prev?.archived ?? false,
-                    read: prev?.read ?? false,
-                };
-            });
+                    return {
+                        id,
+                        title:
+                            item.title?.["#text"] ??
+                            item.title ??
+                            "Başlıksız",
+                        link:
+                            item.link?.href ??
+                            (typeof item.link === "string"
+                                ? item.link
+                                : "") ??
+                            "",
+                        pubDate:
+                            item.pubDate ?? item.updated ?? item.published,
+                        description:
+                            item.description?.["#text"] ??
+                            item.description ??
+                            item.summary ??
+                            "",
+                        archived: prev?.archived ?? false,
+                        read: prev?.read ?? false,
+                    };
+                }
+            );
 
-            setFeed({
-                url,
-                title: channel.title?.["#text"] ?? channel.title ?? url,
-                items,
-            });
+            setItems(nextItems);
 
             return true;
         } catch (err: any) {
             console.error("RSS fetch error", err);
-            const msg = err?.message ?? "RSS okunurken bir hata oluştu.";
+            const msg =
+                err?.message ?? "RSS okunurken bir hata oluştu.";
             setError(msg);
             if (!silent) Alert.alert("Hata", msg);
             return false;
@@ -151,51 +214,129 @@ export const FeedProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
-    const addOrLoadFeed = async (url: string): Promise<boolean> => {
-        return loadFeedFromUrl(url, { silent: false });
+    // ---------- Feed ekleme ----------
+    const addFeedSource = async (
+        name: string,
+        url: string
+    ): Promise<boolean> => {
+        const trimmedUrl = url.trim();
+        const trimmedName = name.trim() || "Yeni Kaynak";
+
+        try {
+            new URL(trimmedUrl);
+        } catch {
+            Alert.alert("Hata", "Geçerli bir URL gir.");
+            return false;
+        }
+
+        const id = Date.now().toString();
+
+        const source: FeedSource = {
+            id,
+            name: trimmedName,
+            url: trimmedUrl,
+            createdAt: new Date().toISOString(),
+        };
+
+        setSources((prev) => [...prev, source]);
+        setSelectedId(id);
+        setItems([]); // yeni kaynak için listeyi temizle
+
+        const ok = await loadFeedForSource(source, {
+            silent: false,
+        });
+
+        return ok;
     };
 
+    const removeFeedSource = (id: string) => {
+        setSources((prev) => prev.filter((s) => s.id !== id));
+        if (selectedId === id) {
+            // seçili olan silinirse, başka birine geç veya temizle
+            const remaining = sources.filter((s) => s.id !== id);
+            const next = remaining[0];
+            if (next) {
+                setSelectedId(next.id);
+                setItems([]); // bir sonraki seçildiğinde yeniden çekilecek
+                loadFeedForSource(next, { silent: false }).catch(
+                    () => { }
+                );
+            } else {
+                setSelectedId(undefined);
+                setItems([]);
+            }
+        }
+    };
+
+    const selectSource = (id: string) => {
+        if (id === selectedId) return;
+        const found = sources.find((s) => s.id === id);
+        if (!found) return;
+        setSelectedId(id);
+        setItems([]);
+        loadFeedForSource(found, { silent: false }).catch(() => { });
+    };
+
+    // ---------- Okundu / arşiv ----------
     const toggleArchive = (id: string) => {
-        setFeed((prev) => ({
-            ...prev,
-            items: prev.items.map((item) =>
-                item.id === id ? { ...item, archived: !item.archived } : item
-            ),
-        }));
+        setItems((prev) =>
+            prev.map((it) =>
+                it.id === id ? { ...it, archived: !it.archived } : it
+            )
+        );
     };
 
     const toggleRead = (id: string) => {
-        setFeed((prev) => ({
-            ...prev,
-            items: prev.items.map((item) =>
-                item.id === id ? { ...item, read: !item.read } : item
-            ),
-        }));
+        setItems((prev) =>
+            prev.map((it) =>
+                it.id === id ? { ...it, read: !it.read } : it
+            )
+        );
     };
 
-    // Otomatik yenileme (dakika ayarına göre)
+    // ---------- Yenileme süresi + otomatik refresh ----------
+    const setRefreshMinutes = (min: number) => {
+        const safe = Math.min(120, Math.max(1, Math.round(min || 1)));
+        _setRefreshMinutes(safe);
+    };
+
     useEffect(() => {
-        if (!feed.url) return;
+        if (!selectedSource) return;
 
         const ms = refreshMinutes * 60 * 1000;
         const id = setInterval(() => {
-            // Sessiz yenileme (Alert patlatmasın)
-            loadFeedFromUrl(feed.url!, { silent: true }).catch(() => { });
+            loadFeedForSource(selectedSource, {
+                silent: true,
+            }).catch(() => { });
         }, ms);
 
         return () => clearInterval(id);
-        // feed.url veya refreshMinutes değişince timer yenilensin
-    }, [feed.url, refreshMinutes]);
+    }, [selectedSource, refreshMinutes]);
+
+    // Eğer store yüklendiğinde seçili kaynak varsa, ilk açılışta bir kez çek
+    useEffect(() => {
+        if (selectedSource && items.length === 0) {
+            loadFeedForSource(selectedSource, {
+                silent: false,
+            }).catch(() => { });
+        }
+        // sadece selectedSource değiştiğinde tetiklesin
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedSource?.id]);
 
     return (
         <FeedContext.Provider
             value={{
-                feed,
+                sources,
+                selectedSource,
+                items,
                 loading,
                 error,
                 refreshMinutes,
                 setRefreshMinutes,
-                addOrLoadFeed,
+                addFeedSource,
+                removeFeedSource,
+                selectSource,
                 toggleArchive,
                 toggleRead,
             }}
@@ -208,7 +349,9 @@ export const FeedProvider = ({ children }: { children: ReactNode }) => {
 export const useFeed = () => {
     const ctx = useContext(FeedContext);
     if (!ctx) {
-        throw new Error("useFeed must be used within FeedProvider");
+        throw new Error(
+            "useFeed must be used within FeedProvider"
+        );
     }
     return ctx;
 };

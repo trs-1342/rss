@@ -27,8 +27,8 @@ export type HomeStackParamList = {
 };
 
 export type RootTabParamList = {
-  HomeTab: undefined;
   ArchivedTab: undefined;
+  HomeTab: undefined;
   SettingsTab: undefined;
 };
 

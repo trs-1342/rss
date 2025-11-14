@@ -8,6 +8,7 @@ import {
     ActivityIndicator,
 } from "react-native";
 import { useTheme } from "@react-navigation/native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import type {
     NativeStackScreenProps,
@@ -22,28 +23,32 @@ type Props = NativeStackScreenProps<
 
 export default function HomeScreen({ navigation }: Props) {
     const { colors } = useTheme();
-    const { feed, loading, toggleArchive, toggleRead } =
-        useFeed();
+    const {
+        selectedSource,
+        items,
+        loading,
+        toggleArchive,
+        toggleRead,
+    } = useFeed();
 
-    const visibleItems = feed.items.filter(
-        (item) => !item.archived
-    );
+    const visibleItems = items.filter((it) => !it.archived);
 
     return (
-        <View
+        <SafeAreaView
             style={[
                 styles.container,
                 { backgroundColor: colors.background },
             ]}
+            edges={["top", "left", "right"]}
         >
             <View style={styles.headerRow}>
                 <View style={{ flex: 1 }}>
                     <Text
                         style={[styles.title, { color: colors.text }]}
                     >
-                        {feed.title ?? "RSS Reader"}
+                        {selectedSource?.name ?? "RSS Reader"}
                     </Text>
-                    {feed.url ? (
+                    {selectedSource ? (
                         <Text
                             style={[
                                 styles.subtitle,
@@ -51,7 +56,7 @@ export default function HomeScreen({ navigation }: Props) {
                             ]}
                             numberOfLines={1}
                         >
-                            {feed.url}
+                            {selectedSource.url}
                         </Text>
                     ) : (
                         <Text
@@ -60,7 +65,7 @@ export default function HomeScreen({ navigation }: Props) {
                                 { color: colors.text },
                             ]}
                         >
-                            Henüz bir RSS adresi eklenmedi.
+                            Henüz RSS kaynağı eklenmedi.
                         </Text>
                     )}
                 </View>
@@ -81,121 +86,125 @@ export default function HomeScreen({ navigation }: Props) {
 
             {!loading &&
                 visibleItems.length === 0 &&
-                feed.url && (
+                selectedSource && (
                     <Text
                         style={[styles.info, { color: colors.text }]}
                     >
-                        Bu feed için gösterilecek öğe bulunamadı.
+                        Bu kaynak için gösterilecek öğe bulunamadı.
                     </Text>
                 )}
 
-            {!loading && visibleItems.length > 0 && (
-                <FlatList
-                    data={visibleItems}
-                    keyExtractor={(item) => item.id}
-                    contentContainerStyle={{
-                        gap: 12,
-                        paddingBottom: 24,
-                    }}
-                    renderItem={({ item }) => (
-                        <TouchableOpacity
-                            style={[
-                                styles.item,
-                                {
-                                    backgroundColor: colors.card,
-                                    borderColor: colors.border,
-                                    opacity: item.read ? 0.7 : 1,
-                                },
-                            ]}
-                            onPress={() =>
-                                navigation.navigate("PostDetail", {
-                                    item,
-                                })
-                            }
-                        >
-                            <View style={styles.itemHeaderRow}>
-                                <Text
-                                    style={[
-                                        styles.itemTitle,
-                                        { color: colors.text },
-                                    ]}
-                                    numberOfLines={2}
-                                >
-                                    {item.title}
-                                </Text>
-                            </View>
-
-                            {item.pubDate && (
-                                <Text
-                                    style={[
-                                        styles.itemMeta,
-                                        { color: colors.text },
-                                    ]}
-                                    numberOfLines={1}
-                                >
-                                    {item.pubDate}
-                                </Text>
-                            )}
-
-                            <View style={styles.itemActionRow}>
-                                <TouchableOpacity
-                                    style={styles.iconButton}
-                                    onPress={() => toggleArchive(item.id)}
-                                >
-                                    <Ionicons
-                                        name={
-                                            item.archived
-                                                ? "archive"
-                                                : "archive-outline"
-                                        }
-                                        size={18}
-                                        color={colors.text}
-                                    />
+            {!loading &&
+                (!selectedSource || visibleItems.length > 0) && (
+                    <FlatList
+                        data={visibleItems}
+                        keyExtractor={(item) => item.id}
+                        contentContainerStyle={{
+                            gap: 12,
+                            paddingBottom: 24,
+                        }}
+                        renderItem={({ item }) => (
+                            <TouchableOpacity
+                                style={[
+                                    styles.item,
+                                    {
+                                        backgroundColor: colors.card,
+                                        borderColor: colors.border,
+                                        opacity: item.read ? 0.7 : 1,
+                                    },
+                                ]}
+                                onPress={() =>
+                                    navigation.navigate("PostDetail", {
+                                        item,
+                                    })
+                                }
+                            >
+                                <View style={styles.itemHeaderRow}>
                                     <Text
                                         style={[
-                                            styles.iconButtonText,
+                                            styles.itemTitle,
                                             { color: colors.text },
                                         ]}
+                                        numberOfLines={2}
                                     >
-                                        Arşivle
+                                        {item.title}
                                     </Text>
-                                </TouchableOpacity>
+                                </View>
 
-                                <TouchableOpacity
-                                    style={styles.iconButton}
-                                    onPress={() => toggleRead(item.id)}
-                                >
-                                    <Ionicons
-                                        name={
-                                            item.read
-                                                ? "eye-off-outline"
-                                                : "eye-outline"
-                                        }
-                                        size={18}
-                                        color={colors.text}
-                                    />
+                                {item.pubDate && (
                                     <Text
                                         style={[
-                                            styles.iconButtonText,
+                                            styles.itemMeta,
                                             { color: colors.text },
                                         ]}
+                                        numberOfLines={1}
                                     >
-                                        {item.read ? "Okunmadı yap" : "Okundu"}
+                                        {item.pubDate}
                                     </Text>
-                                </TouchableOpacity>
-                            </View>
-                        </TouchableOpacity>
-                    )}
-                />
-            )}
-        </View>
+                                )}
+
+                                <View style={styles.itemActionRow}>
+                                    <TouchableOpacity
+                                        style={styles.iconButton}
+                                        onPress={() => toggleArchive(item.id)}
+                                    >
+                                        <Ionicons
+                                            name={
+                                                item.archived
+                                                    ? "archive"
+                                                    : "archive-outline"
+                                            }
+                                            size={18}
+                                            color={colors.text}
+                                        />
+                                        <Text
+                                            style={[
+                                                styles.iconButtonText,
+                                                { color: colors.text },
+                                            ]}
+                                        >
+                                            Arşivle
+                                        </Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={styles.iconButton}
+                                        onPress={() => toggleRead(item.id)}
+                                    >
+                                        <Ionicons
+                                            name={
+                                                item.read
+                                                    ? "eye-off-outline"
+                                                    : "eye-outline"
+                                            }
+                                            size={18}
+                                            color={colors.text}
+                                        />
+                                        <Text
+                                            style={[
+                                                styles.iconButtonText,
+                                                { color: colors.text },
+                                            ]}
+                                        >
+                                            {item.read
+                                                ? "Okunmadı yap"
+                                                : "Okundu"}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </TouchableOpacity>
+                        )}
+                    />
+                )}
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 24,
+        paddingHorizontal: 24,
+        paddingBottom: 24,
     },
     headerRow: {
         flexDirection: "row",

@@ -3,13 +3,14 @@ import React, {
     useContext,
     useState,
     ReactNode,
+    useEffect,
 } from "react";
 import {
     DarkTheme,
     DefaultTheme,
     Theme,
 } from "@react-navigation/native";
-import { useColorScheme } from "react-native";
+import { Appearance } from "react-native";
 
 export type ThemeMode = "system" | "light" | "dark";
 
@@ -18,36 +19,77 @@ type ThemeContextValue = {
     setMode: (mode: ThemeMode) => void;
     navTheme: Theme;
     statusBarStyle: "light-content" | "dark-content";
+    systemTheme: "light" | "dark";
 };
 
-const ThemeContext = createContext<ThemeContextValue | undefined>(
-    undefined
-);
+const ThemeContext = createContext<
+    ThemeContextValue | undefined
+>(undefined);
+
+// İlk okuma - import sonrası
+console.log('İlk Appearance.getColorScheme():', Appearance.getColorScheme());
 
 export const AppThemeProvider = ({
     children,
 }: {
     children: ReactNode;
 }) => {
-    const systemScheme = useColorScheme(); // "light" | "dark" | null
+    // Lazy initialization ile ilk değer
+    const [systemTheme, setSystemTheme] = useState<"light" | "dark">(() => {
+        const current = Appearance.getColorScheme();
+        console.log('useState içinde okuma:', current);
+        return current === "dark" ? "dark" : "light";
+    });
+
     const [mode, setMode] = useState<ThemeMode>("system");
 
-    const effectiveScheme =
-        mode === "system"
-            ? systemScheme ?? "light"
-            : mode;
+    useEffect(() => {
+        // İlk okuma
+        const current = Appearance.getColorScheme();
+        console.log('useEffect içinde okuma:', current);
+        console.log('Mevcut systemTheme state:', systemTheme);
+
+        if (current) {
+            setSystemTheme(current);
+        }
+
+        // Dinleyici
+        const listener = Appearance.addChangeListener(
+            ({ colorScheme }) => {
+                console.log('Tema değişti:', colorScheme);
+                if (colorScheme) {
+                    setSystemTheme(colorScheme);
+                }
+            }
+        );
+
+        return () => {
+            listener.remove();
+        };
+    }, []);
+
+    const effectiveTheme: "light" | "dark" =
+        mode === "system" ? systemTheme : mode;
+
+    console.log('Render - mode:', mode, 'systemTheme:', systemTheme, 'effectiveTheme:', effectiveTheme);
 
     const navTheme =
-        effectiveScheme === "dark" ? DarkTheme : DefaultTheme;
+        effectiveTheme === "dark" ? DarkTheme : DefaultTheme;
 
     const statusBarStyle =
-        effectiveScheme === "dark"
+        effectiveTheme === "dark"
             ? "light-content"
             : "dark-content";
 
     return (
         <ThemeContext.Provider
-            value={{ mode, setMode, navTheme, statusBarStyle }}
+            value={{
+                mode,
+                setMode,
+                navTheme,
+                statusBarStyle,
+                systemTheme,
+            }}
         >
             {children}
         </ThemeContext.Provider>

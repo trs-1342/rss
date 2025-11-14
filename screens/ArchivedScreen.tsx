@@ -7,29 +7,39 @@ import {
     TouchableOpacity,
 } from "react-native";
 import { useTheme } from "@react-navigation/native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFeed } from "../context/FeedContext";
 
 export default function ArchivedScreen() {
     const { colors } = useTheme();
-    const { feed, toggleArchive, toggleRead } = useFeed();
+    const { selectedSource, items, toggleArchive, toggleRead } =
+        useFeed();
 
-    const archivedItems = feed.items.filter(
-        (item) => item.archived
-    );
+    const archivedItems = items.filter((it) => it.archived);
 
     return (
-        <View
+        <SafeAreaView
             style={[
                 styles.container,
                 { backgroundColor: colors.background },
             ]}
+            edges={["top", "left", "right"]}
         >
             <Text
                 style={[styles.title, { color: colors.text }]}
             >
                 Arşivler
             </Text>
+
+            {selectedSource && (
+                <Text
+                    style={[styles.subtitle, { color: colors.text }]}
+                    numberOfLines={1}
+                >
+                    {selectedSource.name} – {selectedSource.url}
+                </Text>
+            )}
 
             {archivedItems.length === 0 ? (
                 <Text
@@ -125,18 +135,23 @@ export default function ArchivedScreen() {
                     )}
                 />
             )}
-        </View>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 24,
+        paddingHorizontal: 24,
+        paddingBottom: 24,
     },
     title: {
         fontSize: 22,
         fontWeight: "700",
+        marginBottom: 4,
+    },
+    subtitle: {
+        fontSize: 13,
         marginBottom: 8,
     },
     info: {
