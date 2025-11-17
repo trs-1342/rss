@@ -1,14 +1,20 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
     View,
     Text,
     StyleSheet,
     TouchableOpacity,
     TextInput,
+    Keyboard,
+    ScrollView,
+    KeyboardAvoidingView,
+    Platform,
+    TouchableWithoutFeedback,
 } from "react-native";
 import {
     useTheme,
 } from "@react-navigation/native";
+import { Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme, ThemeMode } from "../context/ThemeContext";
@@ -24,7 +30,25 @@ export default function SettingsScreen() {
         selectedSource,
         selectSource,
         removeFeedSource,
+        homeViewMode,
+        setHomeViewMode,
     } = useFeed();
+
+    const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+    useEffect(() => {
+        const showSub = Keyboard.addListener("keyboardDidShow", () =>
+            setKeyboardVisible(true)
+        );
+        const hideSub = Keyboard.addListener("keyboardDidHide", () =>
+            setKeyboardVisible(false)
+        );
+
+        return () => {
+            showSub.remove();
+            hideSub.remove();
+        };
+    }, []);
 
     const [refreshInput, setRefreshInput] = useState<string>(
         String(refreshMinutes)
@@ -85,7 +109,275 @@ export default function SettingsScreen() {
         );
     };
 
+    const HomeViewButton = ({
+        label,
+        value,
+    }: {
+        label: string;
+        value: "single" | "all";
+    }) => {
+        const active = homeViewMode === value;
+        return (
+            <TouchableOpacity
+                style={[
+                    styles.modeButton,
+                    {
+                        borderColor: colors.border,
+                        backgroundColor: active
+                            ? colors.primary ?? "#333"
+                            : "transparent",
+                    },
+                ]}
+                onPress={() => setHomeViewMode(value)}
+            >
+                <Text
+                    style={[
+                        styles.modeButtonText,
+                        {
+                            color: active
+                                ? colors.card
+                                : colors.text,
+                        },
+                    ]}
+                >
+                    {label}
+                </Text>
+            </TouchableOpacity>
+        );
+    };
+
     return (
+        // <SafeAreaView
+        //     style={[
+        //         styles.container,
+        //         { backgroundColor: colors.background },
+        //     ]}
+        //     edges={["top", "left", "right"]}
+        // >
+        //     <Text
+        //         style={[styles.title, { color: colors.text }]}
+        //     >
+        //         Ayarlar
+        //     </Text>
+
+        //     {/* Tema */}
+        //     <Text
+        //         style={[styles.subtitle, { color: colors.text }]}
+        //     >
+        //         Tema
+        //     </Text>
+
+        //     <View style={styles.row}>
+        //         <ModeButton label="Varsayılan" modeValue="system" />
+        //         <ModeButton label="Beyaz" modeValue="light" />
+        //         <ModeButton label="Siyah" modeValue="dark" />
+        //     </View>
+
+        //     {/* Yenileme süresi */}
+        //     <View style={styles.sectionSpacer} />
+
+        //     <Text
+        //         style={[styles.subtitle, { color: colors.text }]}
+        //     >
+        //         Otomatik Yenileme Süresi (dk)
+        //     </Text>
+
+        //     <View style={styles.refreshRow}>
+        //         <TouchableOpacity
+        //             style={[
+        //                 styles.refreshButton,
+        //                 {
+        //                     borderColor: colors.border,
+        //                     backgroundColor:
+        //                         colors.card,
+        //                 },
+        //             ]}
+        //             onPress={() => changeBy(-1)}
+        //         >
+        //             <Text
+        //                 style={[
+        //                     styles.refreshButtonText,
+        //                     { color: colors.text },
+        //                 ]}
+        //             >
+        //                 -
+        //             </Text>
+        //         </TouchableOpacity>
+
+        //         <TextInput
+        //             style={[
+        //                 styles.refreshInput,
+        //                 {
+        //                     borderColor: colors.border,
+        //                     color: colors.text,
+        //                 },
+        //             ]}
+        //             value={refreshInput}
+        //             onChangeText={setRefreshInput}
+        //             onBlur={applyRefreshInput}
+        //             keyboardType="numeric"
+        //         />
+
+        //         <TouchableOpacity
+        //             style={[
+        //                 styles.refreshButton,
+        //                 {
+        //                     borderColor: colors.border,
+        //                     backgroundColor:
+        //                         colors.card,
+        //                 },
+        //             ]}
+        //             onPress={() => changeBy(1)}
+        //         >
+        //             <Text
+        //                 style={[
+        //                     styles.refreshButtonText,
+        //                     { color: colors.text },
+        //                 ]}
+        //             >
+        //                 +
+        //             </Text>
+        //         </TouchableOpacity>
+        //     </View>
+
+        //     <Text
+        //         style={[styles.hint, { color: colors.text }]}
+        //     >
+        //         Minimum 1, maksimum 120 dakika. Şu an:{" "}
+        //         {refreshMinutes} dk.
+        //     </Text>
+
+        //     {/* Ana sayfa görünümü */}
+        //     <View style={styles.sectionSpacer} />
+
+        //     <Text
+        //         style={[styles.subtitle, { color: colors.text }]}
+        //     >
+        //         Ana sayfa görünümü
+        //     </Text>
+
+        //     <View style={styles.row}>
+        //         <HomeViewButton
+        //             label="Seçili kaynak"
+        //             value="single"
+        //         />
+        //         <HomeViewButton
+        //             label="Tüm kaynaklar"
+        //             value="all"
+        //         />
+        //     </View>
+
+        //     {/* RSS Kaynakları */}
+        //     <View style={styles.sectionSpacer} />
+
+        //     <Text
+        //         style={[styles.subtitle, { color: colors.text }]}
+        //     >
+        //         RSS Kaynakları
+        //     </Text>
+
+        //     {sources.length === 0 ? (
+        //         <Text
+        //             style={[styles.hint, { color: colors.text }]}
+        //         >
+        //             Henüz eklenmiş bir RSS kaynağı yok.
+        //         </Text>
+        //     ) : (
+        //         <View style={styles.feedList}>
+        //             {sources.map((src) => {
+        //                 const active =
+        //                     selectedSource?.id === src.id;
+        //                 return (
+        //                     <View
+        //                         key={src.id}
+        //                         style={[
+        //                             styles.feedRow,
+        //                             {
+        //                                 backgroundColor: active
+        //                                     ? colors.card
+        //                                     : "transparent",
+        //                                 borderColor: colors.border,
+        //                             },
+        //                         ]}
+        //                     >
+        //                         <TouchableOpacity
+        //                             style={styles.feedInfo}
+        //                             onPress={() => selectSource(src.id)}
+        //                         >
+        //                             <View
+        //                                 style={styles.feedLeftIndicator}
+        //                             >
+        //                                 <Ionicons
+        //                                     name={
+        //                                         active
+        //                                             ? "radio-button-on-outline"
+        //                                             : "radio-button-off-outline"
+        //                                     }
+        //                                     size={18}
+        //                                     color={colors.text}
+        //                                 />
+        //                             </View>
+        //                             <View style={{ flex: 1 }}>
+        //                                 <Text
+        //                                     style={[
+        //                                         styles.feedName,
+        //                                         { color: colors.text },
+        //                                     ]}
+        //                                     numberOfLines={1}
+        //                                 >
+        //                                     {src.name}
+        //                                 </Text>
+        //                                 <Text
+        //                                     style={[
+        //                                         styles.feedUrl,
+        //                                         { color: colors.text },
+        //                                     ]}
+        //                                     numberOfLines={1}
+        //                                 >
+        //                                     {src.url}
+        //                                 </Text>
+        //                             </View>
+        //                         </TouchableOpacity>
+
+        //                         <TouchableOpacity
+        //                             style={styles.feedRemoveButton}
+        //                             onPress={() =>
+        //                                 removeFeedSource(src.id)
+        //                             }
+        //                         >
+        //                             <Ionicons
+        //                                 name="remove-circle-outline"
+        //                                 size={22}
+        //                                 color="#ff3b30"
+        //                             />
+        //                         </TouchableOpacity>
+        //                     </View>
+        //                 );
+        //             })}
+        //         </View>
+        //     )}
+
+        //     {keyboardVisible && (
+        //         <TouchableOpacity
+        //             style={[
+        //                 styles.keyboardButton,
+        //                 {
+        //                     backgroundColor: colors.card,
+        //                     borderColor: colors.border,
+        //                 },
+        //             ]}
+        //             onPress={() => Keyboard.dismiss()}
+        //         >
+        //             <Ionicons
+        //                 name="chevron-down-outline"
+        //                 size={18}
+        //                 color={colors.text}
+        //             />
+        //         </TouchableOpacity>
+        //     )}
+
+        // </SafeAreaView>
+
         <SafeAreaView
             style={[
                 styles.container,
@@ -93,189 +385,252 @@ export default function SettingsScreen() {
             ]}
             edges={["top", "left", "right"]}
         >
-            <Text
-                style={[styles.title, { color: colors.text }]}
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === "ios" ? "padding" : undefined}
             >
-                Ayarlar
-            </Text>
-
-            {/* Tema */}
-            <Text
-                style={[styles.subtitle, { color: colors.text }]}
-            >
-                Tema
-            </Text>
-
-            <View style={styles.row}>
-                <ModeButton label="Varsayılan" modeValue="system" />
-                <ModeButton label="Beyaz" modeValue="light" />
-                <ModeButton label="Siyah" modeValue="dark" />
-            </View>
-
-            {/* Yenileme süresi */}
-            <View style={styles.sectionSpacer} />
-
-            <Text
-                style={[styles.subtitle, { color: colors.text }]}
-            >
-                Otomatik Yenileme Süresi (dk)
-            </Text>
-
-            <View style={styles.refreshRow}>
-                <TouchableOpacity
-                    style={[
-                        styles.refreshButton,
-                        {
-                            borderColor: colors.border,
-                            backgroundColor:
-                                colors.card,
-                        },
-                    ]}
-                    onPress={() => changeBy(-1)}
-                >
-                    <Text
-                        style={[
-                            styles.refreshButtonText,
-                            { color: colors.text },
-                        ]}
+                <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+                    <ScrollView
+                        contentContainerStyle={styles.content}
+                        keyboardDismissMode="on-drag"
+                        keyboardShouldPersistTaps="handled"
                     >
-                        -
-                    </Text>
-                </TouchableOpacity>
+                        <Text
+                            style={[styles.title, { color: colors.text }]}
+                        >
+                            Ayarlar
+                        </Text>
 
-                <TextInput
-                    style={[
-                        styles.refreshInput,
-                        {
-                            borderColor: colors.border,
-                            color: colors.text,
-                        },
-                    ]}
-                    value={refreshInput}
-                    onChangeText={setRefreshInput}
-                    onBlur={applyRefreshInput}
-                    keyboardType="numeric"
-                />
+                        {/* Tema */}
+                        <Text
+                            style={[styles.subtitle, { color: colors.text }]}
+                        >
+                            Tema
+                        </Text>
 
-                <TouchableOpacity
-                    style={[
-                        styles.refreshButton,
-                        {
-                            borderColor: colors.border,
-                            backgroundColor:
-                                colors.card,
-                        },
-                    ]}
-                    onPress={() => changeBy(1)}
-                >
-                    <Text
-                        style={[
-                            styles.refreshButtonText,
-                            { color: colors.text },
-                        ]}
-                    >
-                        +
-                    </Text>
-                </TouchableOpacity>
-            </View>
+                        <View style={styles.row}>
+                            <ModeButton label="Varsayılan" modeValue="system" />
+                            <ModeButton label="Beyaz" modeValue="light" />
+                            <ModeButton label="Siyah" modeValue="dark" />
+                        </View>
 
-            <Text
-                style={[styles.hint, { color: colors.text }]}
-            >
-                Minimum 1, maksimum 120 dakika. Şu an:{" "}
-                {refreshMinutes} dk.
-            </Text>
+                        {/* Yenileme süresi */}
+                        <View style={styles.sectionSpacer} />
 
-            {/* RSS Kaynakları */}
-            <View style={styles.sectionSpacer} />
+                        <Text
+                            style={[styles.subtitle, { color: colors.text }]}
+                        >
+                            Otomatik Yenileme Süresi (dk)
+                        </Text>
 
-            <Text
-                style={[styles.subtitle, { color: colors.text }]}
-            >
-                RSS Kaynakları
-            </Text>
-
-            {sources.length === 0 ? (
-                <Text
-                    style={[styles.hint, { color: colors.text }]}
-                >
-                    Henüz eklenmiş bir RSS kaynağı yok.
-                </Text>
-            ) : (
-                <View style={styles.feedList}>
-                    {sources.map((src) => {
-                        const active =
-                            selectedSource?.id === src.id;
-                        return (
-                            <View
-                                key={src.id}
+                        <View style={styles.refreshRow}>
+                            <TouchableOpacity
                                 style={[
-                                    styles.feedRow,
+                                    styles.refreshButton,
                                     {
-                                        backgroundColor: active
-                                            ? colors.card
-                                            : "transparent",
                                         borderColor: colors.border,
+                                        backgroundColor: colors.card,
                                     },
                                 ]}
+                                onPress={() => changeBy(-1)}
                             >
-                                <TouchableOpacity
-                                    style={styles.feedInfo}
-                                    onPress={() => selectSource(src.id)}
+                                <Text
+                                    style={[
+                                        styles.refreshButtonText,
+                                        { color: colors.text },
+                                    ]}
                                 >
-                                    <View
-                                        style={styles.feedLeftIndicator}
-                                    >
-                                        <Ionicons
-                                            name={
-                                                active
-                                                    ? "radio-button-on-outline"
-                                                    : "radio-button-off-outline"
-                                            }
-                                            size={18}
-                                            color={colors.text}
-                                        />
-                                    </View>
-                                    <View style={{ flex: 1 }}>
-                                        <Text
-                                            style={[
-                                                styles.feedName,
-                                                { color: colors.text },
-                                            ]}
-                                            numberOfLines={1}
-                                        >
-                                            {src.name}
-                                        </Text>
-                                        <Text
-                                            style={[
-                                                styles.feedUrl,
-                                                { color: colors.text },
-                                            ]}
-                                            numberOfLines={1}
-                                        >
-                                            {src.url}
-                                        </Text>
-                                    </View>
-                                </TouchableOpacity>
+                                    -
+                                </Text>
+                            </TouchableOpacity>
 
-                                <TouchableOpacity
-                                    style={styles.feedRemoveButton}
-                                    onPress={() =>
-                                        removeFeedSource(src.id)
-                                    }
+                            <TextInput
+                                style={[
+                                    styles.refreshInput,
+                                    {
+                                        borderColor: colors.border,
+                                        color: colors.text,
+                                    },
+                                ]}
+                                value={refreshInput}
+                                onChangeText={setRefreshInput}
+                                onBlur={applyRefreshInput}
+                                keyboardType="numeric"
+                            />
+
+                            <TouchableOpacity
+                                style={[
+                                    styles.refreshButton,
+                                    {
+                                        borderColor: colors.border,
+                                        backgroundColor: colors.card,
+                                    },
+                                ]}
+                                onPress={() => changeBy(1)}
+                            >
+                                <Text
+                                    style={[
+                                        styles.refreshButtonText,
+                                        { color: colors.text },
+                                    ]}
                                 >
-                                    <Ionicons
-                                        name="remove-circle-outline"
-                                        size={22}
-                                        color="#ff3b30"
-                                    />
-                                </TouchableOpacity>
+                                    +
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <Text
+                            style={[styles.hint, { color: colors.text }]}
+                        >
+                            Minimum 1, maksimum 120 dakika. Şu an:{" "}
+                            {refreshMinutes} dk.
+                        </Text>
+
+                        {/* Ana sayfa görünümü */}
+                        <View style={styles.sectionSpacer} />
+
+                        <Text
+                            style={[styles.subtitle, { color: colors.text }]}
+                        >
+                            Ana sayfa görünümü
+                        </Text>
+
+                        <View style={styles.row}>
+                            <HomeViewButton
+                                label="Seçili kaynak"
+                                value="single"
+                            />
+                            <HomeViewButton
+                                label="Tüm kaynaklar"
+                                value="all"
+                            />
+                        </View>
+
+                        {/* RSS Kaynakları */}
+                        <View style={styles.sectionSpacer} />
+
+                        <Text
+                            style={[styles.subtitle, { color: colors.text }]}
+                        >
+                            RSS Kaynakları
+
+                        </Text>
+
+                        {sources.length === 0 ? (
+                            <Text
+                                style={[styles.hint, { color: colors.text }]}
+                            >
+                                Henüz eklenmiş bir RSS kaynağı yok.
+                            </Text>
+                        ) : (
+                            <View style={styles.feedList}>
+                                {sources.map((src) => {
+                                    const active = selectedSource?.id === src.id;
+                                    return (
+                                        <View
+                                            key={src.id}
+                                            style={[
+                                                styles.feedRow,
+                                                {
+                                                    backgroundColor: active
+                                                        ? colors.card
+                                                        : "transparent",
+                                                    borderColor: colors.border,
+                                                },
+                                            ]}
+                                        >
+                                            <TouchableOpacity
+                                                style={styles.feedInfo}
+                                                onPress={() => selectSource(src.id)}
+                                            >
+                                                <View style={styles.feedLeftIndicator}>
+                                                    <Ionicons
+                                                        name={
+                                                            active
+                                                                ? "radio-button-on-outline"
+                                                                : "radio-button-off-outline"
+                                                        }
+                                                        size={18}
+                                                        color={colors.text}
+                                                    />
+                                                </View>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text
+                                                        style={[
+                                                            styles.feedName,
+                                                            { color: colors.text },
+                                                        ]}
+                                                        numberOfLines={1}
+                                                    >
+                                                        {src.name}
+                                                    </Text>
+                                                    <Text
+                                                        style={[
+                                                            styles.feedUrl,
+                                                            { color: colors.text },
+                                                        ]}
+                                                        numberOfLines={1}
+                                                    >
+                                                        {src.url}
+                                                    </Text>
+                                                </View>
+                                            </TouchableOpacity>
+
+                                            <TouchableOpacity
+                                                style={styles.feedRemoveButton}
+                                                onPress={() =>
+                                                    removeFeedSource(src.id)
+                                                }
+                                            >
+                                                <Ionicons
+                                                    name="remove-circle-outline"
+                                                    size={22}
+                                                    color="#ff3b30"
+                                                />
+                                            </TouchableOpacity>
+
+                                        </View>
+                                    );
+                                })}
                             </View>
-                        );
-                    })}
-                </View>
-            )}
-        </SafeAreaView>
+
+                        )}
+                    </ScrollView>
+                </TouchableWithoutFeedback>
+
+                {keyboardVisible && (
+                    <TouchableOpacity
+                        style={[
+                            styles.keyboardButton,
+                            {
+                                backgroundColor: colors.card,
+                                borderColor: colors.border,
+                            },
+                        ]}
+                        onPress={() => Keyboard.dismiss()}
+                    >
+                        <Ionicons
+                            name="chevron-down-outline"
+                            size={18}
+                            color={colors.text}
+                        />
+                    </TouchableOpacity>
+                )}
+            </KeyboardAvoidingView>
+
+            <View style={styles.footerContainer}>
+                <Text style={[styles.footerText, { color: colors.text }]}>
+                    RSS Reader App · {new Date().getFullYear()} · geliştiren:{" "}
+                    <Text
+                        style={[styles.footerLink, { color: colors.primary ?? "#1e90ff" }]}
+                        onPress={() => Linking.openURL("https://hattab.vercel.app")}
+                    >
+                        trs1342
+                    </Text>
+                </Text>
+            </View>
+
+        </SafeAreaView >
     );
 }
 
@@ -374,5 +729,38 @@ const styles = StyleSheet.create({
     },
     feedRemoveButton: {
         paddingLeft: 4,
+    },
+    keyboardButton: {
+        position: "absolute",
+        right: 16,
+        bottom: 16,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        borderWidth: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        elevation: 3, // Android gölge
+    },
+    content: {
+        paddingBottom: 40,
+    },
+    footerContainer: {
+        marginTop: 16,
+        paddingVertical: 10,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: "rgba(255,255,255,0.12)", // koyu temada ince çizgi
+        alignItems: "center",
+    },
+    footerText: {
+        fontSize: 11,
+        opacity: 0.7,
+        textAlign: "center",
+        letterSpacing: 0.4,
+    },
+    footerLink: {
+        fontSize: 11,
+        fontWeight: "600",
+        textDecorationLine: "underline",
     },
 });

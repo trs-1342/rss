@@ -26,10 +26,25 @@ export type FeedSource = {
     createdAt: string;
 };
 
+export type HomeViewMode = "single" | "all";
+
+type ItemMeta = {
+    archived: boolean;
+    read: boolean;
+};
+
+type MetaStore = {
+    [sourceId: string]: {
+        [itemId: string]: ItemMeta;
+    };
+};
+
 type FeedStore = {
     sources: FeedSource[];
     selectedId?: string;
     refreshMinutes: number;
+    homeViewMode?: HomeViewMode;
+    meta?: MetaStore; // 👈 okundu / arşiv kalıcı meta
 };
 
 type FeedContextValue = {
@@ -39,8 +54,10 @@ type FeedContextValue = {
     loading: boolean;
     error?: string;
     refreshMinutes: number;
+    homeViewMode: HomeViewMode;
 
     setRefreshMinutes: (min: number) => void;
+    setHomeViewMode: (mode: HomeViewMode) => void;
 
     addFeedSource: (name: string, url: string) => Promise<boolean>;
     removeFeedSource: (id: string) => void;
@@ -63,14 +80,17 @@ export const FeedProvider = ({ children }: { children: ReactNode }) => {
     );
     const [refreshMinutes, _setRefreshMinutes] =
         useState<number>(15);
+    const [homeViewMode, _setHomeViewMode] =
+        useState<HomeViewMode>("all");
 
+    const [meta, setMeta] = useState<MetaStore>({});
     const [items, setItems] = useState<FeedItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | undefined>(
         undefined
     );
 
-    // ---------- Local "DB": AsyncStorage'tan yükle ----------
+    // ---------- Store yükle ----------
     useEffect(() => {
         const loadStore = async () => {
             try {
@@ -81,6 +101,8 @@ export const FeedProvider = ({ children }: { children: ReactNode }) => {
                 setSources(parsed.sources ?? []);
                 setSelectedId(parsed.selectedId);
                 _setRefreshMinutes(parsed.refreshMinutes ?? 15);
+                _setHomeViewMode(parsed.homeViewMode ?? "all");
+                setMeta(parsed.meta ?? {});
             } catch (err) {
                 console.error("Store load error:", err);
             }
@@ -89,7 +111,7 @@ export const FeedProvider = ({ children }: { children: ReactNode }) => {
         loadStore();
     }, []);
 
-    // ---------- Store'u kaydet ----------
+    // ---------- Store kaydet ----------
     useEffect(() => {
         const saveStore = async () => {
             try {
@@ -97,6 +119,8 @@ export const FeedProvider = ({ children }: { children: ReactNode }) => {
                     sources,
                     selectedId,
                     refreshMinutes,
+                    homeViewMode,
+                    meta,
                 };
                 await AsyncStorage.setItem(
                     STORAGE_KEY,
@@ -108,20 +132,19 @@ export const FeedProvider = ({ children }: { children: ReactNode }) => {
         };
 
         saveStore();
-    }, [sources, selectedId, refreshMinutes]);
+    }, [sources, selectedId, refreshMinutes, homeViewMode, meta]);
 
     const selectedSource = sources.find(
         (s) => s.id === selectedId
     );
 
-    // ---------- RSS çekme ----------
+    // ---------- RSS çekme (kalıcı meta ile birleştir) ----------
     const loadFeedForSource = async (
         source: FeedSource,
         opts?: { silent?: boolean }
     ): Promise<boolean> => {
         const silent = opts?.silent ?? false;
 
-        // URL validasyonu
         try {
             new URL(source.url);
         } catch {
@@ -159,11 +182,7 @@ export const FeedProvider = ({ children }: { children: ReactNode }) => {
             const rawItems = channel.item ?? channel.entry ?? [];
             const arr = Array.isArray(rawItems) ? rawItems : [rawItems];
 
-            // Okundu/arşiv durumu korunması için önceki item'lar
-            const prevMap = new Map<string, FeedItem>();
-            for (const it of items) {
-                prevMap.set(it.id, it);
-            }
+            const sourceMeta = meta[source.id] ?? {};
 
             const nextItems: FeedItem[] = arr.map(
                 (item: any, index: number) => {
@@ -172,7 +191,11 @@ export const FeedProvider = ({ children }: { children: ReactNode }) => {
                         item.guid ??
                         item.id ??
                         `${index}`;
-                    const prev = prevMap.get(id);
+
+                    const m = sourceMeta[id] ?? {
+                        archived: false,
+                        read: false,
+                    };
 
                     return {
                         id,
@@ -193,8 +216,8 @@ export const FeedProvider = ({ children }: { children: ReactNode }) => {
                             item.description ??
                             item.summary ??
                             "",
-                        archived: prev?.archived ?? false,
-                        read: prev?.read ?? false,
+                        archived: m.archived,
+                        read: m.read,
                     };
                 }
             );
@@ -240,7 +263,7 @@ export const FeedProvider = ({ children }: { children: ReactNode }) => {
 
         setSources((prev) => [...prev, source]);
         setSelectedId(id);
-        setItems([]); // yeni kaynak için listeyi temizle
+        setItems([]);
 
         const ok = await loadFeedForSource(source, {
             silent: false,
@@ -249,16 +272,22 @@ export const FeedProvider = ({ children }: { children: ReactNode }) => {
         return ok;
     };
 
+    // ---------- Feed silme (meta ile birlikte) ----------
     const removeFeedSource = (id: string) => {
         setSources((prev) => prev.filter((s) => s.id !== id));
+        setMeta((prev) => {
+            const next = { ...prev };
+            delete next[id];
+            return next;
+        });
+
         if (selectedId === id) {
-            // seçili olan silinirse, başka birine geç veya temizle
             const remaining = sources.filter((s) => s.id !== id);
-            const next = remaining[0];
-            if (next) {
-                setSelectedId(next.id);
-                setItems([]); // bir sonraki seçildiğinde yeniden çekilecek
-                loadFeedForSource(next, { silent: false }).catch(
+            const nextSource = remaining[0];
+            if (nextSource) {
+                setSelectedId(nextSource.id);
+                setItems([]);
+                loadFeedForSource(nextSource, { silent: false }).catch(
                     () => { }
                 );
             } else {
@@ -268,6 +297,7 @@ export const FeedProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
+    // ---------- Feed seçme ----------
     const selectSource = (id: string) => {
         if (id === selectedId) return;
         const found = sources.find((s) => s.id === id);
@@ -277,13 +307,36 @@ export const FeedProvider = ({ children }: { children: ReactNode }) => {
         loadFeedForSource(found, { silent: false }).catch(() => { });
     };
 
-    // ---------- Okundu / arşiv ----------
+    // ---------- Okundu / Arşiv (kalıcı meta + items) ----------
+    const updateMetaForCurrentSource = (
+        itemId: string,
+        updater: (m: ItemMeta) => ItemMeta
+    ) => {
+        if (!selectedSource) return;
+        setMeta((prev) => {
+            const srcMeta = { ...(prev[selectedSource.id] ?? {}) };
+            const current = srcMeta[itemId] ?? {
+                archived: false,
+                read: false,
+            };
+            srcMeta[itemId] = updater(current);
+            return { ...prev, [selectedSource.id]: srcMeta };
+        });
+    };
+
     const toggleArchive = (id: string) => {
+        // items içindeki state
         setItems((prev) =>
             prev.map((it) =>
                 it.id === id ? { ...it, archived: !it.archived } : it
             )
         );
+
+        // kalıcı meta
+        updateMetaForCurrentSource(id, (m) => ({
+            ...m,
+            archived: !m.archived,
+        }));
     };
 
     const toggleRead = (id: string) => {
@@ -292,12 +345,21 @@ export const FeedProvider = ({ children }: { children: ReactNode }) => {
                 it.id === id ? { ...it, read: !it.read } : it
             )
         );
+
+        updateMetaForCurrentSource(id, (m) => ({
+            ...m,
+            read: !m.read,
+        }));
     };
 
     // ---------- Yenileme süresi + otomatik refresh ----------
     const setRefreshMinutes = (min: number) => {
         const safe = Math.min(120, Math.max(1, Math.round(min || 1)));
         _setRefreshMinutes(safe);
+    };
+
+    const setHomeViewMode = (mode: HomeViewMode) => {
+        _setHomeViewMode(mode);
     };
 
     useEffect(() => {
@@ -313,14 +375,12 @@ export const FeedProvider = ({ children }: { children: ReactNode }) => {
         return () => clearInterval(id);
     }, [selectedSource, refreshMinutes]);
 
-    // Eğer store yüklendiğinde seçili kaynak varsa, ilk açılışta bir kez çek
     useEffect(() => {
         if (selectedSource && items.length === 0) {
             loadFeedForSource(selectedSource, {
                 silent: false,
             }).catch(() => { });
         }
-        // sadece selectedSource değiştiğinde tetiklesin
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedSource?.id]);
 
@@ -333,7 +393,9 @@ export const FeedProvider = ({ children }: { children: ReactNode }) => {
                 loading,
                 error,
                 refreshMinutes,
+                homeViewMode,
                 setRefreshMinutes,
+                setHomeViewMode,
                 addFeedSource,
                 removeFeedSource,
                 selectSource,

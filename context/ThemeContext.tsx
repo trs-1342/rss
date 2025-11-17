@@ -11,6 +11,7 @@ import {
     Theme,
 } from "@react-navigation/native";
 import { Appearance } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export type ThemeMode = "system" | "light" | "dark";
 
@@ -26,43 +27,54 @@ const ThemeContext = createContext<
     ThemeContextValue | undefined
 >(undefined);
 
-// İlk okuma - import sonrası
-console.log('İlk Appearance.getColorScheme():', Appearance.getColorScheme());
+const THEME_STORAGE_KEY = "rssReaderApp:themeMode";
 
 export const AppThemeProvider = ({
     children,
 }: {
     children: ReactNode;
 }) => {
-    // Lazy initialization ile ilk değer
-    const [systemTheme, setSystemTheme] = useState<"light" | "dark">(() => {
-        const current = Appearance.getColorScheme();
-        console.log('useState içinde okuma:', current);
-        return current === "dark" ? "dark" : "light";
-    });
+    const [systemTheme, setSystemTheme] = useState<"light" | "dark">(
+        Appearance.getColorScheme() ?? "light"
+    );
 
-    const [mode, setMode] = useState<ThemeMode>("system");
+    const [mode, setModeState] = useState<ThemeMode>("system");
 
+    // Mode değişince AsyncStorage'a yaz
+    const setMode = (next: ThemeMode) => {
+        setModeState(next);
+        AsyncStorage.setItem(THEME_STORAGE_KEY, next).catch(() => { });
+    };
+
+    // İlk açılışta kayıtlı modu ve sistem temasını oku
     useEffect(() => {
-        // İlk okuma
-        const current = Appearance.getColorScheme();
-        console.log('useEffect içinde okuma:', current);
-        console.log('Mevcut systemTheme state:', systemTheme);
+        const init = async () => {
+            try {
+                const saved = await AsyncStorage.getItem(
+                    THEME_STORAGE_KEY
+                );
+                if (saved === "light" || saved === "dark" || saved === "system") {
+                    setModeState(saved);
+                }
+            } catch {
+                // boşver
+            }
 
-        if (current) {
-            setSystemTheme(current);
-        }
+            const current = Appearance.getColorScheme();
+            if (current) {
+                setSystemTheme(current);
+            }
+        };
 
-        // Dinleyici
+        init();
+
         const listener = Appearance.addChangeListener(
             ({ colorScheme }) => {
-                console.log('Tema değişti:', colorScheme);
                 if (colorScheme) {
                     setSystemTheme(colorScheme);
                 }
             }
         );
-
         return () => {
             listener.remove();
         };
@@ -70,8 +82,6 @@ export const AppThemeProvider = ({
 
     const effectiveTheme: "light" | "dark" =
         mode === "system" ? systemTheme : mode;
-
-    console.log('Render - mode:', mode, 'systemTheme:', systemTheme, 'effectiveTheme:', effectiveTheme);
 
     const navTheme =
         effectiveTheme === "dark" ? DarkTheme : DefaultTheme;

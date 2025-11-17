@@ -9,14 +9,38 @@ import {
 import { useTheme } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { Swipeable } from "react-native-gesture-handler";
 import { useFeed } from "../context/FeedContext";
 
 export default function ArchivedScreen() {
     const { colors } = useTheme();
-    const { selectedSource, items, toggleArchive, toggleRead } =
-        useFeed();
+    const { selectedSource, items, toggleArchive, toggleRead } = useFeed();
 
     const archivedItems = items.filter((it) => it.archived);
+
+    const renderLeftActions = (isRead: boolean) => (
+        <View style={styles.swipeActionContainer}>
+            <View style={[styles.swipeAction, styles.swipeActionRead]}>
+                <Ionicons
+                    name={isRead ? "eye-off-outline" : "eye-outline"}
+                    size={18}
+                    color="#fff"
+                />
+                <Text style={styles.swipeActionText}>
+                    {isRead ? "Okunmadı" : "Okundu"}
+                </Text>
+            </View>
+        </View>
+    );
+
+    const renderRightActions = () => (
+        <View style={styles.swipeActionContainerRight}>
+            <View style={[styles.swipeAction, styles.swipeActionArchive]}>
+                <Ionicons name="archive-outline" size={18} color="#fff" />
+                <Text style={styles.swipeActionText}>Arşivden çıkar</Text>
+            </View>
+        </View>
+    );
 
     return (
         <SafeAreaView
@@ -26,11 +50,7 @@ export default function ArchivedScreen() {
             ]}
             edges={["top", "left", "right"]}
         >
-            <Text
-                style={[styles.title, { color: colors.text }]}
-            >
-                Arşivler
-            </Text>
+            <Text style={[styles.title, { color: colors.text }]}>Arşivler</Text>
 
             {selectedSource && (
                 <Text
@@ -42,9 +62,7 @@ export default function ArchivedScreen() {
             )}
 
             {archivedItems.length === 0 ? (
-                <Text
-                    style={[styles.info, { color: colors.text }]}
-                >
+                <Text style={[styles.info, { color: colors.text }]}>
                     Henüz arşivlenmiş öğe yok.
                 </Text>
             ) : (
@@ -57,81 +75,94 @@ export default function ArchivedScreen() {
                         paddingBottom: 24,
                     }}
                     renderItem={({ item }) => (
-                        <View
-                            style={[
-                                styles.item,
-                                {
-                                    backgroundColor: colors.card,
-                                    borderColor: colors.border,
-                                    opacity: item.read ? 0.7 : 1,
-                                },
-                            ]}
+                        <Swipeable
+                            renderLeftActions={() =>
+                                renderLeftActions(item.read)
+                            }
+                            renderRightActions={renderRightActions}
+                            onSwipeableLeftOpen={() => toggleRead(item.id)}
+                            onSwipeableRightOpen={() =>
+                                toggleArchive(item.id)
+                            }
                         >
-                            <Text
+                            <View
                                 style={[
-                                    styles.itemTitle,
-                                    { color: colors.text },
+                                    styles.item,
+                                    {
+                                        backgroundColor: colors.card,
+                                        borderColor: colors.border,
+                                        opacity: item.read ? 0.7 : 1,
+                                    },
                                 ]}
-                                numberOfLines={2}
                             >
-                                {item.title}
-                            </Text>
-                            {item.pubDate && (
                                 <Text
                                     style={[
-                                        styles.itemMeta,
+                                        styles.itemTitle,
                                         { color: colors.text },
                                     ]}
-                                    numberOfLines={1}
+                                    numberOfLines={2}
                                 >
-                                    {item.pubDate}
+                                    {item.title}
                                 </Text>
-                            )}
-
-                            <View style={styles.itemActionRow}>
-                                <TouchableOpacity
-                                    style={styles.iconButton}
-                                    onPress={() => toggleArchive(item.id)}
-                                >
-                                    <Ionicons
-                                        name="archive-outline"
-                                        size={18}
-                                        color={colors.text}
-                                    />
+                                {item.pubDate && (
                                     <Text
                                         style={[
-                                            styles.iconButtonText,
+                                            styles.itemMeta,
                                             { color: colors.text },
                                         ]}
+                                        numberOfLines={1}
                                     >
-                                        Arşivden çıkar
+                                        {item.pubDate}
                                     </Text>
-                                </TouchableOpacity>
+                                )}
 
-                                <TouchableOpacity
-                                    style={styles.iconButton}
-                                    onPress={() => toggleRead(item.id)}
-                                >
-                                    <Ionicons
-                                        name={
-                                            item.read
-                                                ? "eye-off-outline"
-                                                : "eye-outline"
-                                        }
-                                        size={18}
-                                        color={colors.text}
-                                    />
-                                    <Text
-                                        style={[
-                                            styles.iconButtonText,
-                                            { color: colors.text },
-                                        ]}
+                                <View style={styles.itemActionRow}>
+                                    <TouchableOpacity
+                                        style={styles.iconButton}
+                                        onPress={() => toggleArchive(item.id)}
                                     >
-                                        {item.read ? "Okunmadı yap" : "Okundu"}
-                                    </Text>
-                                </TouchableOpacity>
+                                        <Ionicons
+                                            name="archive-outline"
+                                            size={18}
+                                            color={colors.text}
+                                        />
+                                        <Text
+                                            style={[
+                                                styles.iconButtonText,
+                                                { color: colors.text },
+                                            ]}
+                                        >
+                                            Arşivden çıkar
+                                        </Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={styles.iconButton}
+                                        onPress={() => toggleRead(item.id)}
+                                    >
+                                        <Ionicons
+                                            name={
+                                                item.read
+                                                    ? "eye-off-outline"
+                                                    : "eye-outline"
+                                            }
+                                            size={18}
+                                            color={colors.text}
+                                        />
+                                        <Text
+                                            style={[
+                                                styles.iconButtonText,
+                                                { color: colors.text },
+                                            ]}
+                                        >
+                                            {item.read
+                                                ? "Okunmadı yap"
+                                                : "Okundu"}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
                             </View>
-                        </View>
+                        </Swipeable>
                     )}
                 />
             )}
@@ -182,5 +213,36 @@ const styles = StyleSheet.create({
     },
     iconButtonText: {
         fontSize: 12,
+    },
+    // Swipe stilleri
+    swipeActionContainer: {
+        justifyContent: "center",
+    },
+    swipeActionContainerRight: {
+        justifyContent: "center",
+        alignItems: "flex-end",
+    },
+    swipeAction: {
+        width: 140,
+        height: "85%",
+        borderRadius: 10,
+        marginVertical: 4,
+        marginHorizontal: 4,
+        paddingHorizontal: 10,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+    },
+    swipeActionRead: {
+        backgroundColor: "#34c759",
+    },
+    swipeActionArchive: {
+        backgroundColor: "#ff3b30",
+    },
+    swipeActionText: {
+        color: "#fff",
+        fontSize: 12,
+        fontWeight: "600",
     },
 });
