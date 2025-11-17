@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from "react";
-import { RefreshCw, Plus } from "lucide-react-native"; // veya @expo/vector-icons
 import Icon from "react-native-vector-icons/Feather";
 import {
     View,

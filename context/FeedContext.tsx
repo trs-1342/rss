@@ -207,11 +207,7 @@ export const FeedProvider = ({ children }: { children: ReactNode }) => {
                             item.title ??
                             "Başlıksız",
                         link:
-                            item.link?.href ??
-                            (typeof item.link === "string"
-                                ? item.link
-                                : "") ??
-                            "",
+                            item.link?.href ?? (typeof item.link === "string" ? item.link : "") ?? "",
                         pubDate:
                             item.pubDate ?? item.updated ?? item.published,
                         description:
@@ -365,6 +361,24 @@ export const FeedProvider = ({ children }: { children: ReactNode }) => {
         _setHomeViewMode(mode);
     };
 
+    const refreshFeeds = async (): Promise<void> => {
+        if (!selectedSource) {
+            Alert.alert("Bilgi", "Yenilenecek RSS kaynağı seçilmedi.");
+            return;
+        }
+
+        try {
+            // loadFeedForSource zaten try/catch içeriyor ve hata durumunda Alert gösteriyor
+            await loadFeedForSource(selectedSource, { silent: false });
+        } catch (err: any) {
+            console.error("Refresh error:", err);
+            Alert.alert(
+                "Hata",
+                err?.message ?? "Yenileme sırasında bir hata oluştu."
+            );
+        }
+    };
+
     useEffect(() => {
         if (!selectedSource) return;
 
@@ -404,6 +418,7 @@ export const FeedProvider = ({ children }: { children: ReactNode }) => {
                 selectSource,
                 toggleArchive,
                 toggleRead,
+                refreshFeeds
             }}
         >
             {children}

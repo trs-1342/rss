@@ -7,10 +7,12 @@ Notifications.setNotificationHandler({
         shouldShowAlert: true,
         shouldPlaySound: false,
         shouldSetBadge: false,
-        shouldShowBanner: true, // Added property
-        shouldShowList: false,   // Added property
+        shouldShowBanner: true,
+        shouldShowList: true,
     }),
 });
+
+
 
 export async function requestNotificationPermission() {
     if (!Device.isDevice) return false;
