@@ -8,7 +8,7 @@ import React, {
 import { Alert } from "react-native";
 import { XMLParser } from "fast-xml-parser";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
+import { notifyNewItems } from "../utils/notifications";
 export type FeedItem = {
     id: string;
     title: string;
@@ -142,12 +142,108 @@ export const FeedProvider = ({ children }: { children: ReactNode }) => {
     );
 
     // ---------- RSS çekme (kalıcı meta ile birleştir) ----------
+    // const loadFeedForSource = async (
+    //     source: FeedSource,
+    //     opts?: { silent?: boolean }
+    // ): Promise<boolean> => {
+    //     const silent = opts?.silent ?? false;
+
+    //     try {
+    //         new URL(source.url);
+    //     } catch {
+    //         const msg = "Geçerli bir URL gir.";
+    //         setError(msg);
+    //         if (!silent) Alert.alert("Hata", msg);
+    //         return false;
+    //     }
+
+    //     if (!silent) {
+    //         setLoading(true);
+    //         setError(undefined);
+    //     }
+
+    //     try {
+    //         const res = await fetch(source.url);
+    //         if (!res.ok) {
+    //             throw new Error(`HTTP hata kodu: ${res.status}`);
+    //         }
+
+    //         const text = await res.text();
+
+    //         const parser = new XMLParser({
+    //             ignoreAttributes: false,
+    //             attributeNamePrefix: "",
+    //         });
+
+    //         const data = parser.parse(text);
+
+    //         const channel = data.rss?.channel ?? data.channel ?? data.feed;
+    //         if (!channel) {
+    //             throw new Error("Beklenmeyen RSS formatı.");
+    //         }
+
+    //         const rawItems = channel.item ?? channel.entry ?? [];
+    //         const arr = Array.isArray(rawItems) ? rawItems : [rawItems];
+
+    //         const sourceMeta = meta[source.id] ?? {};
+
+    //         const nextItems: FeedItem[] = arr.map(
+    //             (item: any, index: number) => {
+    //                 const id =
+    //                     item.guid?.["#text"] ??
+    //                     item.guid ??
+    //                     item.id ??
+    //                     `${index}`;
+
+    //                 const m = sourceMeta[id] ?? {
+    //                     archived: false,
+    //                     read: false,
+    //                 };
+
+    //                 return {
+    //                     id,
+    //                     title:
+    //                         item.title?.["#text"] ??
+    //                         item.title ??
+    //                         "Başlıksız",
+    //                     link:
+    //                         item.link?.href ?? (typeof item.link === "string" ? item.link : "") ?? "",
+    //                     pubDate:
+    //                         item.pubDate ?? item.updated ?? item.published,
+    //                     description:
+    //                         item.description?.["#text"] ??
+    //                         item.description ??
+    //                         item.summary ??
+    //                         "",
+    //                     archived: m.archived,
+    //                     read: m.read,
+    //                 };
+    //             }
+    //         );
+
+    //         setItems(nextItems);
+
+    //         return true;
+    //     } catch (err: any) {
+    //         console.error("RSS fetch error", err);
+    //         const msg =
+    //             err?.message ?? "RSS okunurken bir hata oluştu.";
+    //         setError(msg);
+    //         if (!silent) Alert.alert("Hata", msg);
+    //         return false;
+    //     } finally {
+    //         if (!silent) setLoading(false);
+    //     }
+    // };
+
+    // ---------- RSS çekme (kalıcı meta ile birleştir + yeni item bildirimi) ----------
     const loadFeedForSource = async (
         source: FeedSource,
         opts?: { silent?: boolean }
     ): Promise<boolean> => {
         const silent = opts?.silent ?? false;
 
+        // 1) URL doğrulama
         try {
             new URL(source.url);
         } catch {
@@ -157,12 +253,16 @@ export const FeedProvider = ({ children }: { children: ReactNode }) => {
             return false;
         }
 
+        // 2) loading state
         if (!silent) {
             setLoading(true);
             setError(undefined);
         }
 
         try {
+            // Önceki item id'lerini sakla (seçili kaynaktaki mevcut liste)
+            const prevIds = new Set(items.map((it) => it.id));
+
             const res = await fetch(source.url);
             if (!res.ok) {
                 throw new Error(`HTTP hata kodu: ${res.status}`);
@@ -207,7 +307,11 @@ export const FeedProvider = ({ children }: { children: ReactNode }) => {
                             item.title ??
                             "Başlıksız",
                         link:
-                            item.link?.href ?? (typeof item.link === "string" ? item.link : "") ?? "",
+                            item.link?.href ??
+                            (typeof item.link === "string"
+                                ? item.link
+                                : "") ??
+                            "",
                         pubDate:
                             item.pubDate ?? item.updated ?? item.published,
                         description:
@@ -220,6 +324,19 @@ export const FeedProvider = ({ children }: { children: ReactNode }) => {
                     };
                 }
             );
+
+            // Yeni item sayısını hesapla
+            let newCount = 0;
+            for (const it of nextItems) {
+                if (!prevIds.has(it.id)) {
+                    newCount++;
+                }
+            }
+
+            // Yeni item varsa bildirim at (istersen silent durumda da atabilirsin)
+            if (newCount > 0 && !silent) {
+                notifyNewItems(source.name, newCount).catch(() => { });
+            }
 
             setItems(nextItems);
 
@@ -235,6 +352,7 @@ export const FeedProvider = ({ children }: { children: ReactNode }) => {
             if (!silent) setLoading(false);
         }
     };
+
 
     // ---------- Feed ekleme ----------
     const addFeedSource = async (
