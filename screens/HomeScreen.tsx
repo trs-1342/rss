@@ -1,6 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { RefreshCw, Plus } from "lucide-react-native"; // veya @expo/vector-icons
+import Icon from "react-native-vector-icons/Feather";
 import {
     View,
+    Animated,
     Text,
     TextInput,
     StyleSheet,
@@ -38,7 +41,26 @@ export default function HomeScreen({ navigation }: Props) {
         toggleRead,
         selectSource,
         homeViewMode,
+        refreshFeeds
     } = useFeed();
+
+    const [refreshing, setRefreshing] = useState(false);
+
+    const iconColor = "#fff";
+
+    const onAddPress = () => {
+        navigation.navigate("AddFeed");
+    };
+
+    // Yenile
+    const onRefreshPress = async () => {
+        try {
+            setRefreshing(true);
+            await refreshFeeds();     // ← DOĞRU FONKSİYON BU
+        } finally {
+            setRefreshing(false);
+        }
+    };
 
     const [expandedId, setExpandedId] = useState<string | undefined>(
         undefined
@@ -127,6 +149,16 @@ export default function HomeScreen({ navigation }: Props) {
             </View>
         </View>
     );
+
+    const spin = useRef(new Animated.Value(0)).current;
+
+    const animateRefresh = () => {
+        Animated.timing(spin, {
+            toValue: 1,
+            duration: 700,
+            useNativeDriver: true,
+        }).start(() => spin.setValue(0));
+    };
 
     // SAĞDAN: Okundu / Okunmadı
     const renderRightActions = (isRead: boolean) => (
@@ -402,17 +434,24 @@ export default function HomeScreen({ navigation }: Props) {
                 >
                     Kaynaklar
                 </Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
 
-                <TouchableOpacity
-                    style={styles.addButton}
-                    onPress={() => navigation.navigate("AddFeed")}
-                >
-                    <Ionicons
-                        name="add"
-                        size={22}
-                        color="#fff"
-                    />
-                </TouchableOpacity>
+                    {/* Ekle */}
+                    <TouchableOpacity onPress={onAddPress}>
+                        {/* <Plus size={24} color={iconColor} /> */}
+                        <Icon name="plus" size={20} color="#fff" />
+                    </TouchableOpacity>
+
+                    {/* Yenile */}
+                    <TouchableOpacity onPress={onRefreshPress}>
+                        {/* <RefreshCw size={24} color={iconColor} /> */}
+                        <Icon name="refresh-cw" size={20} color="#fff" />
+                    </TouchableOpacity>
+
+                    {/* Yükleniyor efekti */}
+                    {refreshing && <ActivityIndicator size="small" color={iconColor} />}
+                </View>
+
             </View>
 
             <View style={styles.searchRow}>

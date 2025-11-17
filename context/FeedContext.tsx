@@ -65,6 +65,9 @@ type FeedContextValue = {
 
     toggleArchive: (id: string) => void;
     toggleRead: (id: string) => void;
+
+    refreshFeeds: () => Promise<void>; // 🔥 yeni
+
 };
 
 const FeedContext = createContext<FeedContextValue | undefined>(
