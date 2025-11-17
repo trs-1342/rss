@@ -39,9 +39,11 @@ const HomeStack =
 const Tab =
   createBottomTabNavigator<RootTabParamList>();
 
+const AnyHomeStackNavigator: any = HomeStack.Navigator;
+
 function HomeStackNavigator() {
   return (
-    <HomeStack.Navigator>
+    <AnyHomeStackNavigator>
       <HomeStack.Screen
         name="HomeMain"
         component={HomeScreen}
@@ -57,7 +59,7 @@ function HomeStackNavigator() {
         component={PostDetailScreen}
         options={{ title: "Detay" }}
       />
-    </HomeStack.Navigator>
+    </AnyHomeStackNavigator>
   );
 }
 
@@ -68,6 +70,8 @@ function AppNavigation() {
     <>
       <StatusBar barStyle={statusBarStyle} />
       <NavigationContainer theme={navTheme}>
+        {/* React Navigation'ın id tipi bug'ını burada susturuyoruz */}
+        {/* @ts-expect-error React Navigation BottomTabNavigator id typing bug */}
         <Tab.Navigator
           screenOptions={({ route }) => ({
             headerShown: false,
