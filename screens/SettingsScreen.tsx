@@ -628,6 +628,13 @@ export default function SettingsScreen() {
                         trs1342
                     </Text>
                 </Text>
+                <Text style={[styles.footerText, { color: colors.text }]}>
+                    RSS (Really Simple Syndication), web sitelerinin içeriklerini
+                    standart bir formatta sunmalarını sağlayan bir teknolojidir. Bu
+                    uygulama, favori web sitelerinizin yeni içeriklerini takip
+                    etmenizi ve tek bir yerden okumanızı kolaylaştırır.
+                    eloktrik eposta gibi düşünebilirsiniz, ancak web siteleri için geliştirilmiştir.
+                </Text>
             </View>
 
         </SafeAreaView >

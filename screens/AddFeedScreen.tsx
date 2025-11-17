@@ -32,6 +32,12 @@ type SuggestedFeed = {
 
 const SUGGESTED_FEEDS: SuggestedFeed[] = [
     {
+        id: "trs1342",
+        name: "trs-1342",
+        url: "https://hattab.vercel.app/hsounds/rss.xml",
+        kind: "site",
+    },
+    {
         id: "webtekno",
         name: "Webtekno",
         url: "https://www.webtekno.com/rss.xml",
