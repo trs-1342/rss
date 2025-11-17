@@ -12,6 +12,7 @@ import {
 import { useTheme } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { Swipeable } from "react-native-gesture-handler";
 import type {
     NativeStackScreenProps,
 } from "@react-navigation/native-stack";
@@ -65,22 +66,19 @@ export default function HomeScreen({ navigation }: Props) {
 
         const trimmed = text.trim().toLowerCase();
         if (trimmed.length === 0) {
-            return; // arama boşsa kartlarla oynamıyoruz
+            return;
         }
 
-        // En alakalı kaynağı bul: adı veya URL'i arama metnini içeriyorsa
         const match = sources.find((src) =>
             src.name.toLowerCase().includes(trimmed) ||
             src.url.toLowerCase().includes(trimmed)
         );
 
         if (match) {
-            // Bu kaynağı seç ve kartını aç
             selectSource(match.id);
             setExpandedId(match.id);
         }
     };
-
 
     useEffect(() => {
         const showSub = Keyboard.addListener("keyboardDidShow", () =>
@@ -95,13 +93,6 @@ export default function HomeScreen({ navigation }: Props) {
             hideSub.remove();
         };
     }, []);
-
-
-    // const visibleItems = items.filter((it) => {
-    //     if (it.archived) return false;
-    //     if (search.trim().length === 0) return true;
-    //     return it.title.toLowerCase().includes(search.toLowerCase());
-    // });
 
     const visibleItems = items.filter((it) => {
         // Arşivlenmişleri gösterme
@@ -120,6 +111,38 @@ export default function HomeScreen({ navigation }: Props) {
         return true;
     });
 
+    // SWIPE ACTIONLAR
+    // SOLDAN: Arşivle / Arşivden çıkar
+    const renderLeftActions = (archived: boolean) => (
+        <View style={styles.swipeActionContainerLeft}>
+            <View style={[styles.swipeAction, styles.swipeActionArchive]}>
+                <Ionicons
+                    name={archived ? "archive" : "archive-outline"}
+                    size={18}
+                    color="#fff"
+                />
+                <Text style={styles.swipeActionText}>
+                    {archived ? "Arşivden çıkar" : "Arşivle"}
+                </Text>
+            </View>
+        </View>
+    );
+
+    // SAĞDAN: Okundu / Okunmadı
+    const renderRightActions = (isRead: boolean) => (
+        <View style={styles.swipeActionContainerRight}>
+            <View style={[styles.swipeAction, styles.swipeActionRead]}>
+                <Ionicons
+                    name={isRead ? "eye-off-outline" : "eye-outline"}
+                    size={18}
+                    color="#fff"
+                />
+                <Text style={styles.swipeActionText}>
+                    {isRead ? "Okunmadı" : "Okundu"}
+                </Text>
+            </View>
+        </View>
+    );
 
     // --------- SINGLE MODE (eski davranış) -----------
     if (homeViewMode === "single") {
@@ -211,8 +234,6 @@ export default function HomeScreen({ navigation }: Props) {
                     </TouchableOpacity>
                 </View>
 
-
-
                 {loading && <ActivityIndicator size="large" />}
 
                 {!loading &&
@@ -237,95 +258,110 @@ export default function HomeScreen({ navigation }: Props) {
                             keyboardDismissMode="on-drag"
                             keyboardShouldPersistTaps="handled"
                             renderItem={({ item }) => (
-                                <TouchableOpacity
-                                    style={[
-                                        styles.item,
-                                        {
-                                            backgroundColor: colors.card,
-                                            borderColor: colors.border,
-                                            opacity: item.read ? 0.7 : 1,
-                                        },
-                                    ]}
-                                    onPress={() =>
-                                        navigation.navigate("PostDetail", {
-                                            item,
-                                        })
+                                <Swipeable
+                                    renderLeftActions={() =>
+                                        renderLeftActions(item.archived)
+                                    }
+                                    renderRightActions={() =>
+                                        renderRightActions(item.read)
+                                    }
+                                    onSwipeableLeftOpen={() =>
+                                        toggleArchive(item.id)
+                                    }
+                                    onSwipeableRightOpen={() =>
+                                        toggleRead(item.id)
                                     }
                                 >
-                                    <View style={styles.itemHeaderRow}>
-                                        <Text
-                                            style={[
-                                                styles.itemTitle,
-                                                { color: colors.text },
-                                            ]}
-                                            numberOfLines={2}
-                                        >
-                                            {item.title}
-                                        </Text>
-                                    </View>
-
-                                    {item.pubDate && (
-                                        <Text
-                                            style={[
-                                                styles.itemMeta,
-                                                { color: colors.text },
-                                            ]}
-                                            numberOfLines={1}
-                                        >
-                                            {item.pubDate}
-                                        </Text>
-                                    )}
-
-                                    <View style={styles.itemActionRow}>
-                                        <TouchableOpacity
-                                            style={styles.iconButton}
-                                            onPress={() => toggleArchive(item.id)}
-                                        >
-                                            <Ionicons
-                                                name={
-                                                    item.archived
-                                                        ? "archive"
-                                                        : "archive-outline"
-                                                }
-                                                size={18}
-                                                color={colors.text}
-                                            />
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.item,
+                                            {
+                                                backgroundColor: colors.card,
+                                                borderColor: colors.border,
+                                                opacity: item.read ? 0.7 : 1,
+                                            },
+                                        ]}
+                                        onPress={() =>
+                                            navigation.navigate("PostDetail", {
+                                                item,
+                                            })
+                                        }
+                                    >
+                                        <View style={styles.itemHeaderRow}>
                                             <Text
                                                 style={[
-                                                    styles.iconButtonText,
+                                                    styles.itemTitle,
                                                     { color: colors.text },
                                                 ]}
+                                                numberOfLines={2}
                                             >
-                                                Arşivle
+                                                {item.title}
                                             </Text>
-                                        </TouchableOpacity>
+                                        </View>
 
-                                        <TouchableOpacity
-                                            style={styles.iconButton}
-                                            onPress={() => toggleRead(item.id)}
-                                        >
-                                            <Ionicons
-                                                name={
-                                                    item.read
-                                                        ? "eye-off-outline"
-                                                        : "eye-outline"
-                                                }
-                                                size={18}
-                                                color={colors.text}
-                                            />
+                                        {item.pubDate && (
                                             <Text
                                                 style={[
-                                                    styles.iconButtonText,
+                                                    styles.itemMeta,
                                                     { color: colors.text },
                                                 ]}
+                                                numberOfLines={1}
                                             >
-                                                {item.read
-                                                    ? "Okunmadı yap"
-                                                    : "Okundu"}
+                                                {item.pubDate}
                                             </Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                </TouchableOpacity>
+                                        )}
+
+                                        <View style={styles.itemActionRow}>
+                                            <TouchableOpacity
+                                                style={styles.iconButton}
+                                                onPress={() => toggleArchive(item.id)}
+                                            >
+                                                <Ionicons
+                                                    name={
+                                                        item.archived
+                                                            ? "archive"
+                                                            : "archive-outline"
+                                                    }
+                                                    size={18}
+                                                    color={colors.text}
+                                                />
+                                                <Text
+                                                    style={[
+                                                        styles.iconButtonText,
+                                                        { color: colors.text },
+                                                    ]}
+                                                >
+                                                    Arşivle
+                                                </Text>
+                                            </TouchableOpacity>
+
+                                            <TouchableOpacity
+                                                style={styles.iconButton}
+                                                onPress={() => toggleRead(item.id)}
+                                            >
+                                                <Ionicons
+                                                    name={
+                                                        item.read
+                                                            ? "eye-off-outline"
+                                                            : "eye-outline"
+                                                    }
+                                                    size={18}
+                                                    color={colors.text}
+                                                />
+                                                <Text
+                                                    style={[
+                                                        styles.iconButtonText,
+                                                        { color: colors.text },
+                                                    ]}
+                                                >
+                                                    {item.read
+                                                        ? "Okunmadı yap"
+                                                        : "Okundu"}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    </TouchableOpacity>
+                                </Swipeable>
                             )}
                         />
                     )}
@@ -418,25 +454,6 @@ export default function HomeScreen({ navigation }: Props) {
                 </TouchableOpacity>
             </View>
 
-
-            {/* <TextInput
-                placeholder="Kaynaklar içinde ara..."
-                placeholderTextColor={colors.text}
-                value={search}
-                onChangeText={setSearch}
-                style={{
-                    backgroundColor: colors.card,
-                    borderColor: colors.border,
-                    borderWidth: 1,
-                    borderRadius: 10,
-                    paddingHorizontal: 12,
-                    paddingVertical: 8,
-                    color: colors.text,
-                    marginBottom: 12,
-                }}
-            /> */}
-
-
             {sources.length === 0 ? (
                 <Text
                     style={[styles.info, { color: colors.text }]}
@@ -454,21 +471,6 @@ export default function HomeScreen({ navigation }: Props) {
                     }}
                     keyboardDismissMode="on-drag"
                     keyboardShouldPersistTaps="handled"
-                    // renderItem={({ item: src }) => {
-                    //     const hasSearch = search.trim().length > 0;
-
-                    //     // Bu kaynağa ait RSS postlarını al
-                    //     const srcItems = visibleItems.filter((it) => it.sourceId === src.id);
-
-                    //     // Arama yapılıyorsa ve bu kaynakta eşleşen post varsa kartı otomatik aç
-                    //     const isExpandedBySearch = hasSearch && srcItems.length > 0;
-
-                    //     // Normal durumda user'ın tıkladığı kartlar expandedId ile kontrol edilir
-                    //     const isExpanded = isExpandedBySearch || expandedId === src.id;
-
-                    //     // İstersen seçili kaynağı ayrı stillendirmek için kullanabilirsin
-                    //     const isSelected = selectedSource?.id === src.id;
-
                     renderItem={({ item: src }) => {
                         const isSelected = selectedSource?.id === src.id;
                         const isExpanded = expandedId === src.id;
@@ -477,8 +479,6 @@ export default function HomeScreen({ navigation }: Props) {
                             isSelected && isExpanded
                                 ? visibleItems
                                 : [];
-
-
 
                         return (
                             <View
@@ -498,7 +498,6 @@ export default function HomeScreen({ navigation }: Props) {
                                             setExpandedId(undefined);
                                             return;
                                         }
-                                        // Kart açılırken bu kaynağı seç ve feed'i yükle
                                         selectSource(src.id);
                                         setExpandedId(src.id);
                                     }}
@@ -560,137 +559,152 @@ export default function HomeScreen({ navigation }: Props) {
                                             srcItems.length > 0 && (
                                                 <View style={styles.itemsInsideCard}>
                                                     {srcItems.map((item) => (
-                                                        <TouchableOpacity
+                                                        <Swipeable
                                                             key={item.id}
-                                                            style={[
-                                                                styles.item,
-                                                                {
-                                                                    backgroundColor:
-                                                                        colors.background,
-                                                                    borderColor:
-                                                                        colors.border,
-                                                                    opacity: item.read
-                                                                        ? 0.7
-                                                                        : 1,
-                                                                },
-                                                            ]}
-                                                            onPress={() =>
-                                                                navigation.navigate(
-                                                                    "PostDetail",
-                                                                    { item }
-                                                                )
+                                                            renderLeftActions={() =>
+                                                                renderLeftActions(item.archived)
+                                                            }
+                                                            renderRightActions={() =>
+                                                                renderRightActions(item.read)
+                                                            }
+                                                            onSwipeableLeftOpen={() =>
+                                                                toggleArchive(item.id)
+                                                            }
+                                                            onSwipeableRightOpen={() =>
+                                                                toggleRead(item.id)
                                                             }
                                                         >
-                                                            <View
-                                                                style={
-                                                                    styles.itemHeaderRow
+                                                            <TouchableOpacity
+                                                                style={[
+                                                                    styles.item,
+                                                                    {
+                                                                        backgroundColor:
+                                                                            colors.background,
+                                                                        borderColor:
+                                                                            colors.border,
+                                                                        opacity: item.read
+                                                                            ? 0.7
+                                                                            : 1,
+                                                                    },
+                                                                ]}
+                                                                onPress={() =>
+                                                                    navigation.navigate(
+                                                                        "PostDetail",
+                                                                        { item }
+                                                                    )
                                                                 }
                                                             >
-                                                                <Text
-                                                                    style={[
-                                                                        styles.itemTitle,
-                                                                        {
-                                                                            color:
-                                                                                colors.text,
-                                                                        },
-                                                                    ]}
-                                                                    numberOfLines={2}
-                                                                >
-                                                                    {item.title}
-                                                                </Text>
-                                                            </View>
-
-                                                            {item.pubDate && (
-                                                                <Text
-                                                                    style={[
-                                                                        styles.itemMeta,
-                                                                        {
-                                                                            color:
-                                                                                colors.text,
-                                                                        },
-                                                                    ]}
-                                                                    numberOfLines={1}
-                                                                >
-                                                                    {item.pubDate}
-                                                                </Text>
-                                                            )}
-
-                                                            <View
-                                                                style={
-                                                                    styles.itemActionRow
-                                                                }
-                                                            >
-                                                                <TouchableOpacity
+                                                                <View
                                                                     style={
-                                                                        styles.iconButton
-                                                                    }
-                                                                    onPress={() =>
-                                                                        toggleArchive(
-                                                                            item.id
-                                                                        )
+                                                                        styles.itemHeaderRow
                                                                     }
                                                                 >
-                                                                    <Ionicons
-                                                                        name={
-                                                                            item.archived
-                                                                                ? "archive"
-                                                                                : "archive-outline"
-                                                                        }
-                                                                        size={16}
-                                                                        color={
-                                                                            colors.text
-                                                                        }
-                                                                    />
                                                                     <Text
                                                                         style={[
-                                                                            styles.iconButtonText,
+                                                                            styles.itemTitle,
                                                                             {
                                                                                 color:
                                                                                     colors.text,
                                                                             },
                                                                         ]}
+                                                                        numberOfLines={2}
                                                                     >
-                                                                        Arşivle
+                                                                        {item.title}
                                                                     </Text>
-                                                                </TouchableOpacity>
+                                                                </View>
 
-                                                                <TouchableOpacity
-                                                                    style={
-                                                                        styles.iconButton
-                                                                    }
-                                                                    onPress={() =>
-                                                                        toggleRead(
-                                                                            item.id
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    <Ionicons
-                                                                        name={
-                                                                            item.read
-                                                                                ? "eye-off-outline"
-                                                                                : "eye-outline"
-                                                                        }
-                                                                        size={16}
-                                                                        color={
-                                                                            colors.text
-                                                                        }
-                                                                    />
+                                                                {item.pubDate && (
                                                                     <Text
                                                                         style={[
-                                                                            styles.iconButtonText,
+                                                                            styles.itemMeta,
                                                                             {
                                                                                 color:
                                                                                     colors.text,
                                                                             },
                                                                         ]}
+                                                                        numberOfLines={1}
                                                                     >
-                                                                        {item.read
-                                                                            ? "Okunmadı"
-                                                                            : "Okundu"}
+                                                                        {item.pubDate}
                                                                     </Text>
-                                                                </TouchableOpacity>
-                                                            </View>
-                                                        </TouchableOpacity>
+                                                                )}
+
+                                                                <View
+                                                                    style={
+                                                                        styles.itemActionRow
+                                                                    }
+                                                                >
+                                                                    <TouchableOpacity
+                                                                        style={
+                                                                            styles.iconButton
+                                                                        }
+                                                                        onPress={() =>
+                                                                            toggleArchive(
+                                                                                item.id
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        <Ionicons
+                                                                            name={
+                                                                                item.archived
+                                                                                    ? "archive"
+                                                                                    : "archive-outline"
+                                                                            }
+                                                                            size={16}
+                                                                            color={
+                                                                                colors.text
+                                                                            }
+                                                                        />
+                                                                        <Text
+                                                                            style={[
+                                                                                styles.iconButtonText,
+                                                                                {
+                                                                                    color:
+                                                                                        colors.text,
+                                                                                },
+                                                                            ]}
+                                                                        >
+                                                                            Arşivle
+                                                                        </Text>
+                                                                    </TouchableOpacity>
+
+                                                                    <TouchableOpacity
+                                                                        style={
+                                                                            styles.iconButton
+                                                                        }
+                                                                        onPress={() =>
+                                                                            toggleRead(
+                                                                                item.id
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        <Ionicons
+                                                                            name={
+                                                                                item.read
+                                                                                    ? "eye-off-outline"
+                                                                                    : "eye-outline"
+                                                                            }
+                                                                            size={16}
+                                                                            color={
+                                                                                colors.text
+                                                                            }
+                                                                        />
+                                                                        <Text
+                                                                            style={[
+                                                                                styles.iconButtonText,
+                                                                                {
+                                                                                    color:
+                                                                                        colors.text,
+                                                                                },
+                                                                            ]}
+                                                                        >
+                                                                            {item.read
+                                                                                ? "Okunmadı"
+                                                                                : "Okundu"}
+                                                                        </Text>
+                                                                    </TouchableOpacity>
+                                                                </View>
+                                                            </TouchableOpacity>
+                                                        </Swipeable>
                                                     ))}
                                                 </View>
                                             )}
@@ -849,7 +863,37 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         alignItems: "center",
         justifyContent: "center",
-        elevation: 3, // Android gölge
+        elevation: 3,
     },
-
+    // SWIPE stilleri
+    swipeActionContainerLeft: {
+        justifyContent: "center",
+    },
+    swipeActionContainerRight: {
+        justifyContent: "center",
+        alignItems: "flex-end",
+    },
+    swipeAction: {
+        width: 140,
+        height: "85%",
+        borderRadius: 10,
+        marginVertical: 4,
+        marginHorizontal: 4,
+        paddingHorizontal: 10,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+    },
+    swipeActionArchive: {
+        backgroundColor: "#ff3b30",
+    },
+    swipeActionRead: {
+        backgroundColor: "#34c759",
+    },
+    swipeActionText: {
+        color: "#fff",
+        fontSize: 12,
+        fontWeight: "600",
+    },
 });

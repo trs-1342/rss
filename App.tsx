@@ -1,4 +1,6 @@
 import React from "react";
+import "react-native-gesture-handler";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StatusBar } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import {
@@ -124,10 +126,12 @@ function AppNavigation() {
 
 export default function App() {
   return (
-    <AppThemeProvider>
-      <FeedProvider>
-        <AppNavigation />
-      </FeedProvider>
-    </AppThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AppThemeProvider>
+        <FeedProvider>
+          <AppNavigation />
+        </FeedProvider>
+      </AppThemeProvider>
+    </GestureHandlerRootView>
   );
 }

@@ -18,8 +18,19 @@ export default function ArchivedScreen() {
 
     const archivedItems = items.filter((it) => it.archived);
 
-    const renderLeftActions = (isRead: boolean) => (
-        <View style={styles.swipeActionContainer}>
+    // SOLDAN: Arşiv / Arşivden çıkar
+    const renderLeftActions = () => (
+        <View style={styles.swipeActionContainerLeft}>
+            <View style={[styles.swipeAction, styles.swipeActionArchive]}>
+                <Ionicons name="archive-outline" size={18} color="#fff" />
+                <Text style={styles.swipeActionText}>Arşivden çıkar</Text>
+            </View>
+        </View>
+    );
+
+    // SAĞDAN: Okundu / Okunmadı
+    const renderRightActions = (isRead: boolean) => (
+        <View style={styles.swipeActionContainerRight}>
             <View style={[styles.swipeAction, styles.swipeActionRead]}>
                 <Ionicons
                     name={isRead ? "eye-off-outline" : "eye-outline"}
@@ -29,15 +40,6 @@ export default function ArchivedScreen() {
                 <Text style={styles.swipeActionText}>
                     {isRead ? "Okunmadı" : "Okundu"}
                 </Text>
-            </View>
-        </View>
-    );
-
-    const renderRightActions = () => (
-        <View style={styles.swipeActionContainerRight}>
-            <View style={[styles.swipeAction, styles.swipeActionArchive]}>
-                <Ionicons name="archive-outline" size={18} color="#fff" />
-                <Text style={styles.swipeActionText}>Arşivden çıkar</Text>
             </View>
         </View>
     );
@@ -76,14 +78,12 @@ export default function ArchivedScreen() {
                     }}
                     renderItem={({ item }) => (
                         <Swipeable
-                            renderLeftActions={() =>
-                                renderLeftActions(item.read)
+                            renderLeftActions={renderLeftActions}
+                            renderRightActions={() =>
+                                renderRightActions(item.read)
                             }
-                            renderRightActions={renderRightActions}
-                            onSwipeableLeftOpen={() => toggleRead(item.id)}
-                            onSwipeableRightOpen={() =>
-                                toggleArchive(item.id)
-                            }
+                            onSwipeableLeftOpen={() => toggleArchive(item.id)}
+                            onSwipeableRightOpen={() => toggleRead(item.id)}
                         >
                             <View
                                 style={[
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
         fontSize: 12,
     },
     // Swipe stilleri
-    swipeActionContainer: {
+    swipeActionContainerLeft: {
         justifyContent: "center",
     },
     swipeActionContainerRight: {
@@ -234,11 +234,11 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         gap: 6,
     },
-    swipeActionRead: {
-        backgroundColor: "#34c759",
-    },
     swipeActionArchive: {
         backgroundColor: "#ff3b30",
+    },
+    swipeActionRead: {
+        backgroundColor: "#34c759",
     },
     swipeActionText: {
         color: "#fff",
